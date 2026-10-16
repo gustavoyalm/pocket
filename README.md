@@ -14,6 +14,12 @@ cp .env.example .env.local   # preencha com a URL e a publishable key do seu pro
 npm run dev
 ```
 
+### Banco de dados
+
+As migrations ficam em [`supabase/migrations`](supabase/migrations). Num projeto novo, rode os arquivos em ordem no **SQL Editor** do Supabase (ou use `supabase db push` com a [CLI](https://supabase.com/docs/guides/cli)).
+
+Todas as tabelas usam Row Level Security: cada usuário só enxerga os próprios dados.
+
 ## Deploy (Docker)
 
 A imagem faz o build do app e serve os arquivos estáticos com nginx na porta `80`.
