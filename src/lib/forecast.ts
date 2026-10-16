@@ -3,10 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from './supabase';
 import { useAccounts } from './accounts';
 import { formatInvoice, isCard } from './cards';
-import { todayISO } from './dates';
+import { currentMonth, shiftMonth, todayISO } from './dates';
 
 /**
- * Previsão de caixa: quanto vai ter nas contas de banco (tudo que não é cartão) dia a dia.
+ * Previsão de caixa: o que entra e sai das contas de banco (tudo que não é cartão), mês a mês.
  *
  * Parte do saldo atual dessas contas e aplica, na data em que o dinheiro se move:
  *  • transações pendentes das contas de banco (compras no cartão NÃO entram: quem sai do banco é a fatura)
@@ -20,6 +20,7 @@ export type ForecastEvent = {
   date: string; // data em que o dinheiro se move (atrasados = hoje)
   originalDate: string;
   overdue: boolean;
+  /** 'invoice' inclui pagamentos de fatura já agendados (transferência para o cartão) */
   kind: 'income' | 'expense' | 'transfer' | 'invoice';
   description: string;
   accountName: string;
@@ -27,7 +28,17 @@ export type ForecastEvent = {
   balance: number; // saldo previsto logo após este evento
 };
 
-export type ForecastPoint = { date: string; balance: number };
+/** Resumo de um mês: quanto há a pagar/receber e como termina o saldo. */
+export type ForecastMonth = {
+  month: string; // "YYYY-MM"
+  payable: number; // total a pagar (positivo)
+  payableCount: number;
+  invoices: number; // parte do "a pagar" que é fatura de cartão
+  bills: number; // demais contas a pagar
+  receivable: number;
+  endBalance: number; // saldo previsto no fim do mês
+  events: ForecastEvent[];
+};
 
 export function addDays(iso: string, days: number) {
   const [y, m, d] = iso.split('-').map(Number);
@@ -35,9 +46,11 @@ export function addDays(iso: string, days: number) {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 }
 
-export function useForecast(days: number) {
+/** Previsão do mês atual + os próximos (`months` meses no total). */
+export function useForecast(months: number) {
   const today = todayISO();
-  const end = addDays(today, days);
+  const lastMonth = shiftMonth(currentMonth(), months - 1);
+  const end = addDays(`${shiftMonth(lastMonth, 1)}-01`, -1); // último dia do último mês
   const { data: accounts } = useAccounts();
 
   const pending = useQuery({
@@ -114,7 +127,8 @@ export function useForecast(days: number) {
         date: when(t.date),
         originalDate: t.date,
         overdue: t.date < today,
-        kind: 'transfer',
+        // Saindo do banco para um cartão = pagamento de fatura agendado
+        kind: out && isCard(to) ? 'invoice' : 'transfer',
         description: t.description || (isCard(to) ? `Pagamento ${to?.name}` : 'Transferência'),
         accountName: `${byId.get(t.from_account_id)?.name} → ${to?.name}`,
         amount: out ? -Number(t.amount) : Number(t.amount),
@@ -145,19 +159,28 @@ export function useForecast(days: number) {
     let running = start;
     const withBalance: ForecastEvent[] = events.map((e) => ({ ...e, balance: (running += e.amount) }));
 
-    // Série diária (saldo ao fim de cada dia) para o gráfico
-    const series: ForecastPoint[] = [];
-    let i = 0;
+    // Agrupa por mês (atrasados já estão em "hoje", ou seja, no mês atual)
+    const monthsList: ForecastMonth[] = [];
     let balance = start;
-    for (let d = today; d <= end; d = addDays(d, 1)) {
-      while (i < withBalance.length && withBalance[i].date === d) balance = withBalance[i++].balance;
-      series.push({ date: d, balance });
+    for (let m = currentMonth(); m <= lastMonth; m = shiftMonth(m, 1)) {
+      const evs = withBalance.filter((e) => e.date.startsWith(m));
+      const out = evs.filter((e) => e.amount < 0);
+      const invoicesOut = out.filter((e) => e.kind === 'invoice').reduce((t, e) => t - e.amount, 0);
+      const allOut = out.reduce((t, e) => t - e.amount, 0);
+      if (evs.length) balance = evs[evs.length - 1].balance;
+      monthsList.push({
+        month: m,
+        payable: allOut,
+        payableCount: out.length,
+        invoices: invoicesOut,
+        bills: allOut - invoicesOut,
+        receivable: evs.filter((e) => e.amount > 0).reduce((t, e) => t + e.amount, 0),
+        endBalance: balance,
+        events: evs,
+      });
     }
 
-    const min = series.reduce((m, p) => (p.balance < m.balance ? p : m), series[0]);
-    const income = events.filter((e) => e.amount > 0).reduce((s, e) => s + e.amount, 0);
-    const expense = events.filter((e) => e.amount < 0).reduce((s, e) => s - e.amount, 0);
-    return { start, end: balance, min, income, expense, events: withBalance, series };
+    return { start, months: monthsList, events: withBalance };
   }, [accounts, pending.data, transfers.data, invoices.data, today, end]);
 
   return {

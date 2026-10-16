@@ -28,7 +28,7 @@ const tabs = {
   previsao: 'Previsão',
 } as const;
 
-const horizons = [30, 60, 90, 180] as const;
+const horizons = [3, 6, 12] as const;
 type Tab = keyof typeof tabs;
 
 export default function Reports() {
@@ -44,7 +44,7 @@ export default function Reports() {
   const tagId = params.get('tag') ?? '';
   const paidOnly = params.get('pagos') === '1';
   const basis: MonthlyBasis = params.get('base') === 'caixa' ? 'cash' : 'purchase';
-  const days = horizons.find((h) => String(h) === params.get('dias')) ?? 90;
+  const months = horizons.find((h) => String(h) === params.get('meses')) ?? 6;
   const isForecast = tab === 'previsao';
 
   const fallback = presetPeriod('6m');
@@ -102,14 +102,14 @@ export default function Reports() {
               <button
                 key={h}
                 type="button"
-                aria-pressed={days === h}
-                onClick={() => update({ dias: h === 90 ? null : String(h) })}
+                aria-pressed={months === h}
+                onClick={() => update({ meses: h === 6 ? null : String(h) })}
                 className={cn(
                   'text-muted-foreground rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
-                  days === h && 'bg-background text-foreground shadow-xs',
+                  months === h && 'bg-background text-foreground shadow-xs',
                 )}
               >
-                {h} dias
+                {h} meses
               </button>
             ))}
           </div>
@@ -237,7 +237,7 @@ export default function Reports() {
       {tab === 'categoria' && <CategoryReport filters={filters} type={type} />}
       {tab === 'mensal' && <MonthlyReport filters={filters} basis={basis} />}
       {tab === 'tags' && <TagReport filters={filters} type={type} />}
-      {isForecast && <ForecastReport days={days} />}
+      {isForecast && <ForecastReport months={months} />}
     </div>
   );
 }

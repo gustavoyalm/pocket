@@ -1,113 +1,104 @@
-import { Area, CartesianGrid, ComposedChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { AlertTriangle } from 'lucide-react';
-import { formatShortDate } from '@/lib/dates';
-import { useForecast, type ForecastPoint } from '@/lib/forecast';
-import { formatCompact } from '@/lib/reports';
+import { useState } from 'react';
+import { formatInvoice } from '@/lib/cards';
+import { formatMonth, formatShortDate } from '@/lib/dates';
+import { useForecast, type ForecastMonth } from '@/lib/forecast';
 import { cn, formatMoney } from '@/lib/utils';
 import { Table, Td, Th, THead, Tr } from '@/components/ui/table';
 import { EmptyReport } from './shared';
 
-const LINE = 'var(--chart-income)';
+const BAR = 'var(--chart-expense)';
+const CHART_HEIGHT = 160; // px da área das barras
 
-const longDate = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
-const formatLong = (iso: string) => {
-  const [y, m, d] = iso.split('-').map(Number);
-  return longDate.format(new Date(y, m - 1, d)).replace(/\./g, '');
-};
-
-export function ForecastReport({ days }: { days: number }) {
-  const { data, isLoading, error } = useForecast(days);
+export function ForecastReport({ months }: { months: number }) {
+  const { data, isLoading, error } = useForecast(months);
+  const [selected, setSelected] = useState<string | null>(null);
 
   if (isLoading || !data) return <div className="bg-muted/50 h-96 animate-pulse rounded-lg border" />;
   if (error) return <p className="text-destructive text-sm">Erro ao carregar: {error.message}</p>;
 
-  const goesNegative = data.min.balance < 0;
-  const firstNegative = data.series.find((p) => p.balance < 0);
+  const max = Math.max(0, ...data.months.map((m) => m.payable));
+  const avg = data.months.reduce((s, m) => s + m.payable, 0) / data.months.length;
+  const visible = selected ? data.months.filter((m) => m.month === selected) : data.months;
+  const sel = data.months.find((m) => m.month === selected);
 
   return (
     <div className="space-y-3">
-      <p className="text-muted-foreground text-xs">
-        Saldo das contas de banco (sem cartões) dia a dia. Compras no cartão entram pela fatura, no dia do
-        vencimento, pelo valor que ainda falta pagar. Pendências atrasadas contam como hoje.
-      </p>
+      <div className="bg-card rounded-lg border p-4">
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-medium">A pagar por mês</h2>
+            <p className="text-muted-foreground text-xs">
+              Contas pendentes, faturas de cartão (no vencimento) e pagamentos agendados. Clique num mês para
+              ver o que vence nele.
+            </p>
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Saldo hoje nas contas <span className="money text-foreground font-medium">{formatMoney(data.start)}</span>
+          </p>
+        </div>
 
-      {/* Números principais */}
-      <div className="bg-card grid grid-cols-2 rounded-lg border lg:grid-cols-5">
-        <Stat label="Saldo hoje" value={data.start} />
-        <Stat label="Entradas previstas" value={data.income} />
-        <Stat label="Saídas previstas" value={-data.expense} />
-        <Stat
-          label="Menor saldo"
-          value={data.min.balance}
-          note={formatLong(data.min.date)}
-          negative={data.min.balance < 0}
-        />
-        <Stat label={`Saldo em ${days} dias`} value={data.end} negative={data.end < 0} last />
+        {max === 0 ? (
+          <EmptyReport>Nada a pagar nos próximos {months} meses.</EmptyReport>
+        ) : (
+          <div className="relative">
+            {/* Linha da média: deixa óbvio quais meses estão acima do normal */}
+            <div
+              className="pointer-events-none absolute inset-x-0 z-0"
+              style={{ top: 20 + CHART_HEIGHT - (avg / max) * CHART_HEIGHT }}
+            >
+              <div className="border-muted-foreground/40 border-t" />
+              <span className="bg-card text-muted-foreground absolute -top-2 right-0 pl-1.5 text-[10px]">
+                média <span className="money">{formatMoney(avg)}</span>
+              </span>
+            </div>
+
+            <div className="flex gap-1">
+              {data.months.map((m) => (
+                <MonthColumn
+                  key={m.month}
+                  m={m}
+                  max={max}
+                  heavy={m.payable > avg * 1.001 && m.payable > 0}
+                  selected={selected === m.month}
+                  dimmed={!!selected && selected !== m.month}
+                  onClick={() => setSelected(selected === m.month ? null : m.month)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {goesNegative && firstNegative && (
-        <p className="border-destructive/40 bg-destructive/10 text-destructive flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-          <AlertTriangle className="size-4 shrink-0" />
-          O saldo fica negativo a partir de {formatLong(firstNegative.date)} e chega a{' '}
-          <span className="money font-semibold">{formatMoney(data.min.balance)}</span> em {formatLong(data.min.date)}.
+      {sel && (
+        <p className="text-sm">
+          <span className="font-medium">{formatMonth(sel.month)}</span>
+          <span className="text-muted-foreground">
+            {' '}
+            · a pagar <span className="money text-foreground">{formatMoney(sel.payable)}</span>
+            {sel.invoices > 0 && (
+              <>
+                {' '}
+                (faturas <span className="money">{formatMoney(sel.invoices)}</span>, outras contas{' '}
+                <span className="money">{formatMoney(sel.bills)}</span>)
+              </>
+            )}{' '}
+            · a receber <span className="money text-foreground">{formatMoney(sel.receivable)}</span> · saldo no fim do
+            mês{' '}
+            <span className={cn('money text-foreground', sel.endBalance < 0 && 'text-destructive')}>
+              {formatMoney(sel.endBalance)}
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setSelected(null)}
+            className="text-muted-foreground hover:text-foreground ml-3 text-xs underline-offset-4 hover:underline"
+          >
+            ver todos os meses
+          </button>
         </p>
       )}
 
-      <div className="bg-card rounded-lg border p-4">
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data.series} margin={{ top: 12, right: 12, bottom: 0, left: 0 }}>
-              <CartesianGrid vertical={false} stroke="var(--border)" />
-              <XAxis
-                dataKey="date"
-                tickFormatter={(d: string) => formatShortDate(d).date}
-                tickLine={false}
-                axisLine={{ stroke: 'var(--border)' }}
-                tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontFamily: 'var(--font-mono)' }}
-                minTickGap={32}
-              />
-              <YAxis
-                domain={[(min: number) => Math.min(0, min), 'auto']}
-                tickFormatter={formatCompact}
-                tickLine={false}
-                axisLine={false}
-                width={56}
-                tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontFamily: 'var(--font-mono)' }}
-              />
-              <ReferenceLine y={0} stroke="var(--destructive)" strokeOpacity={0.6} />
-              <Tooltip
-                cursor={{ stroke: 'var(--muted-foreground)', strokeWidth: 1 }}
-                content={({ active, payload }) => <ChartTooltip active={active} payload={payload} />}
-                isAnimationActive={false}
-              />
-              {/* Degraus: o saldo só muda nos dias com movimento */}
-              <Area
-                type="stepAfter"
-                dataKey="balance"
-                stroke={LINE}
-                strokeWidth={2}
-                fill={LINE}
-                fillOpacity={0.1}
-                isAnimationActive={false}
-                activeDot={{ r: 4, fill: LINE, stroke: 'var(--card)', strokeWidth: 2 }}
-              />
-              {/* Marca o ponto mais baixo */}
-              <ReferenceDot
-                x={data.min.date}
-                y={data.min.balance}
-                r={4}
-                fill={goesNegative ? 'var(--destructive)' : LINE}
-                stroke="var(--card)"
-                strokeWidth={2}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {data.events.length === 0 ? (
-        <EmptyReport>Nenhuma pendência nem fatura a pagar nos próximos {days} dias.</EmptyReport>
-      ) : (
+      {data.events.length > 0 && (
         <Table>
           <THead>
             <tr>
@@ -119,39 +110,59 @@ export function ForecastReport({ days }: { days: number }) {
             </tr>
           </THead>
           <tbody>
-            {data.events.map((e) => {
-              const { date, weekday } = formatShortDate(e.date);
-              return (
-                <Tr key={e.key}>
-                  <Td className="money text-xs">
-                    {date} <span className="text-muted-foreground">{weekday}</span>
-                  </Td>
-                  <Td className="w-full max-w-0">
-                    <span className="flex items-center gap-2">
-                      <span className="truncate">{e.description}</span>
-                      {e.kind === 'invoice' && (
-                        <span className="text-muted-foreground shrink-0 rounded border px-1 text-[11px] leading-4">fatura</span>
-                      )}
-                      {e.overdue && (
-                        <span className="text-destructive shrink-0 text-[11px]">
-                          atrasada desde {formatShortDate(e.originalDate).date}
-                        </span>
-                      )}
-                    </span>
-                  </Td>
-                  <Td className="text-muted-foreground hidden md:table-cell">
-                    <span className="block max-w-56 truncate">{e.accountName}</span>
-                  </Td>
-                  <Td className={cn('money text-right', e.amount > 0 && 'text-success')}>
-                    {e.amount > 0 ? '+' : '−'}
-                    {formatMoney(Math.abs(e.amount))}
-                  </Td>
-                  <Td className={cn('money text-right font-medium', e.balance < 0 && 'text-destructive')}>
-                    {formatMoney(e.balance)}
-                  </Td>
-                </Tr>
-              );
-            })}
+            {visible.map((m) =>
+              m.events.length === 0
+                ? null
+                : [
+                    // Cabeçalho do mês com o subtotal
+                    <tr key={`h-${m.month}`} className="bg-muted/40 border-b">
+                      <Td colSpan={3} className="text-xs font-medium">
+                        {formatMonth(m.month)}
+                      </Td>
+                      <Td className="money text-muted-foreground text-right text-xs">
+                        a pagar {formatMoney(m.payable)}
+                      </Td>
+                      <Td className={cn('money text-right text-xs', m.endBalance < 0 ? 'text-destructive' : 'text-muted-foreground')}>
+                        fim {formatMoney(m.endBalance)}
+                      </Td>
+                    </tr>,
+                    ...m.events.map((e) => {
+                      const { date, weekday } = formatShortDate(e.date);
+                      return (
+                        <Tr key={e.key}>
+                          <Td className="money text-xs">
+                            {date} <span className="text-muted-foreground">{weekday}</span>
+                          </Td>
+                          <Td className="w-full max-w-0">
+                            <span className="flex items-center gap-2">
+                              <span className="truncate">{e.description}</span>
+                              {e.kind === 'invoice' && (
+                                <span className="text-muted-foreground shrink-0 rounded border px-1 text-[11px] leading-4">
+                                  fatura
+                                </span>
+                              )}
+                              {e.overdue && (
+                                <span className="text-destructive shrink-0 text-[11px]">
+                                  atrasada desde {formatShortDate(e.originalDate).date}
+                                </span>
+                              )}
+                            </span>
+                          </Td>
+                          <Td className="text-muted-foreground hidden md:table-cell">
+                            <span className="block max-w-56 truncate">{e.accountName}</span>
+                          </Td>
+                          <Td className={cn('money text-right', e.amount > 0 && 'text-success')}>
+                            {e.amount > 0 ? '+' : '−'}
+                            {formatMoney(Math.abs(e.amount))}
+                          </Td>
+                          <Td className={cn('money text-right', e.balance < 0 && 'text-destructive')}>
+                            {formatMoney(e.balance)}
+                          </Td>
+                        </Tr>
+                      );
+                    }),
+                  ],
+            )}
           </tbody>
         </Table>
       )}
@@ -159,25 +170,64 @@ export function ForecastReport({ days }: { days: number }) {
   );
 }
 
-function Stat(props: { label: string; value: number; note?: string; negative?: boolean; last?: boolean }) {
-  return (
-    <div className={cn('border-b px-4 py-3 lg:border-b-0', !props.last && 'lg:border-r')}>
-      <p className="text-muted-foreground text-xs">{props.label}</p>
-      <p className={cn('money mt-0.5 text-lg font-semibold', props.negative && 'text-destructive')}>
-        {formatMoney(props.value)}
-      </p>
-      <p className="text-muted-foreground h-4 text-[11px]">{props.note}</p>
-    </div>
-  );
-}
+type ColumnProps = {
+  m: ForecastMonth;
+  max: number;
+  heavy: boolean;
+  selected: boolean;
+  dimmed: boolean;
+  onClick: () => void;
+};
 
-function ChartTooltip({ active, payload }: { active?: boolean; payload?: ReadonlyArray<{ payload?: unknown }> }) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0].payload as ForecastPoint;
+/** Uma coluna = um mês: valor em cima, barra, e o resumo embaixo. */
+function MonthColumn({ m, max, heavy, selected, dimmed, onClick }: ColumnProps) {
+  const height = max > 0 ? (m.payable / max) * CHART_HEIGHT : 0;
+  const breakdown =
+    m.invoices > 0
+      ? `Faturas ${formatMoney(m.invoices)} · outras contas ${formatMoney(m.bills)}`
+      : `${m.payableCount} contas`;
   return (
-    <div className="bg-card text-card-foreground rounded-md border px-3 py-2 text-xs shadow-md">
-      <p className="text-muted-foreground mb-0.5 capitalize">{formatLong(p.date)}</p>
-      <p className={cn('money font-medium', p.balance < 0 && 'text-destructive')}>{formatMoney(p.balance)}</p>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      title={breakdown}
+      className={cn(
+        'flex min-w-16 flex-1 flex-col items-center rounded-md px-1 pb-2 transition-colors',
+        'hover:bg-accent/50 focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none',
+        selected && 'bg-accent',
+        dimmed && 'opacity-50',
+      )}
+    >
+      {/* Valor em cima da barra */}
+      <div className="flex flex-col items-center justify-end" style={{ height: 20 + CHART_HEIGHT }}>
+        {/* Fundo do cartão atrás do valor: a linha da média passa por trás, sem cortar o número */}
+        <span
+          className={cn(
+            'money bg-card relative z-10 mb-1 rounded px-1 text-xs whitespace-nowrap',
+            heavy ? 'font-semibold' : 'text-muted-foreground',
+            selected && 'bg-accent',
+          )}
+        >
+          {m.payable > 0 ? formatMoney(m.payable) : '—'}
+        </span>
+        <div
+          className="relative z-10 w-6 rounded-t-[4px]"
+          style={{ height: Math.max(height, m.payable > 0 ? 2 : 0), backgroundColor: BAR, opacity: heavy ? 1 : 0.45 }}
+        />
+      </div>
+      <div className="border-border w-full border-t pt-1.5 text-center">
+        <p className="text-sm font-medium">{formatInvoice(m.month)}</p>
+        <p className="text-muted-foreground text-[11px]">
+          {m.payableCount} {m.payableCount === 1 ? 'conta' : 'contas'}
+        </p>
+        <p
+          className={cn('money text-[11px]', m.endBalance < 0 ? 'text-destructive font-medium' : 'text-muted-foreground')}
+          title="Saldo previsto no fim do mês"
+        >
+          saldo {formatMoney(m.endBalance)}
+        </p>
+      </div>
+    </button>
   );
 }
