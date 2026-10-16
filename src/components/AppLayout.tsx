@@ -6,6 +6,7 @@ import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/utils';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
+import { TransactionDialogProvider } from './TransactionDialog';
 import { Button } from './ui/button';
 
 const nav = [
@@ -16,7 +17,7 @@ const nav = [
 ];
 
 const itemClass =
-  'flex items-center gap-3 rounded-md px-3 py-2 text-sm whitespace-nowrap transition-colors [&_svg]:size-4';
+  'flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap transition-colors [&_svg]:size-4';
 
 export function AppLayout() {
   const { session } = useAuth();
@@ -27,60 +28,62 @@ export function AppLayout() {
   };
 
   return (
-    <div className="flex min-h-svh flex-col md:flex-row">
-      <aside className="bg-sidebar text-sidebar-foreground border-sidebar-border flex shrink-0 flex-col border-b md:sticky md:top-0 md:h-svh md:w-60 md:border-r md:border-b-0">
-        <div className="flex items-center justify-between p-4">
-          <Logo />
-          <div className="flex items-center gap-1 md:hidden">
-            <ThemeToggle />
-            <Button variant="ghost" size="icon" title="Sair" aria-label="Sair" onClick={signOut}>
-              <LogOut />
-            </Button>
+    <TransactionDialogProvider>
+      <div className="flex min-h-svh flex-col md:flex-row">
+        <aside className="bg-sidebar text-sidebar-foreground border-sidebar-border flex shrink-0 flex-col border-b md:sticky md:top-0 md:h-svh md:w-52 md:border-r md:border-b-0">
+          <div className="flex items-center justify-between px-4 py-3">
+            <Logo />
+            <div className="flex items-center gap-1 md:hidden">
+              <ThemeToggle />
+              <Button variant="ghost" size="icon" title="Sair" aria-label="Sair" onClick={signOut}>
+                <LogOut />
+              </Button>
+            </div>
           </div>
-        </div>
-        <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-1 md:flex-col md:pb-0">
-          {nav.map(({ to, label, icon: Icon, ready }) =>
-            ready ? (
-              <NavLink
-                key={to}
-                to={to}
-                end
-                className={({ isActive }) =>
-                  cn(
-                    itemClass,
-                    isActive
-                      ? 'bg-sidebar-accent font-medium'
-                      : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
-                  )
-                }
-              >
-                <Icon />
-                {label}
-              </NavLink>
-            ) : (
-              <span key={to} className={cn(itemClass, 'text-muted-foreground/60 cursor-default')} title="Em breve">
-                <Icon />
-                {label}
-                <span className="bg-muted ml-auto rounded px-1.5 py-0.5 text-[10px] tracking-wide uppercase">
-                  breve
+          <nav className="flex gap-0.5 overflow-x-auto px-2 pb-2 md:flex-1 md:flex-col md:pb-0">
+            {nav.map(({ to, label, icon: Icon, ready }) =>
+              ready ? (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end
+                  className={({ isActive }) =>
+                    cn(
+                      itemClass,
+                      isActive
+                        ? 'bg-sidebar-accent font-medium'
+                        : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
+                    )
+                  }
+                >
+                  <Icon />
+                  {label}
+                </NavLink>
+              ) : (
+                <span key={to} className={cn(itemClass, 'text-muted-foreground/50 cursor-default')} title="Em breve">
+                  <Icon />
+                  {label}
                 </span>
-              </span>
-            ),
-          )}
-        </nav>
-        <div className="border-sidebar-border hidden space-y-3 border-t p-4 md:block">
-          <ThemeToggle />
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-muted-foreground truncate text-xs">{session?.user.email}</span>
-            <Button variant="ghost" size="icon" title="Sair" aria-label="Sair" onClick={signOut}>
-              <LogOut />
-            </Button>
+              ),
+            )}
+          </nav>
+          <div className="border-sidebar-border hidden space-y-2 border-t p-3 md:block">
+            <p className="text-muted-foreground px-1 text-xs">
+              <kbd className="bg-muted rounded border px-1 font-mono text-[10px]">N</kbd> nova transação
+            </p>
+            <div className="flex items-center justify-between gap-2">
+              <ThemeToggle />
+              <Button variant="ghost" size="icon" title="Sair" aria-label="Sair" onClick={signOut}>
+                <LogOut />
+              </Button>
+            </div>
+            <p className="text-muted-foreground truncate px-1 text-xs">{session?.user.email}</p>
           </div>
-        </div>
-      </aside>
-      <main className="min-w-0 flex-1 p-4 md:p-8">
-        <Outlet />
-      </main>
-    </div>
+        </aside>
+        <main className="min-w-0 flex-1 px-4 py-4 md:px-6 md:py-5">
+          <Outlet />
+        </main>
+      </div>
+    </TransactionDialogProvider>
   );
 }

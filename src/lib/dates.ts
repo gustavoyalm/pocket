@@ -35,8 +35,18 @@ export function monthBounds(month: string): [string, string] {
 const monthFmt = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' });
 const dayFmt = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
 
+/** "Outubro de 2026" */
 export function formatMonth(month: string) {
-  return monthFmt.format(fromISO(month));
+  const s = monthFmt.format(fromISO(month));
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const weekdayFmt = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
+
+/** "15/10" + dia da semana ("qua"), para colunas de tabela. */
+export function formatShortDate(iso: string) {
+  const [, m, d] = iso.split('-');
+  return { date: `${d}/${m}`, weekday: weekdayFmt.format(fromISO(iso)).replace('.', '') };
 }
 
 export function formatDay(iso: string) {

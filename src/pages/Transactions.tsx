@@ -4,17 +4,15 @@ import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
 import { useAccounts } from '@/lib/accounts';
 import { useCategories } from '@/lib/categories';
 import { currentMonth, formatMonth, isValidMonth, shiftMonth } from '@/lib/dates';
-import { summarize, useTransactions, type Transaction, type TransactionType } from '@/lib/transactions';
+import { summarize, useTransactions, type TransactionType } from '@/lib/transactions';
 import { cn, formatMoney } from '@/lib/utils';
-import { TransactionForm } from '@/components/TransactionForm';
-import { TransactionList } from '@/components/TransactionList';
+import { useTransactionDialog } from '@/components/TransactionDialog';
+import { TransactionTable } from '@/components/TransactionTable';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Dialog } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { PageHeader } from '@/components/PageHeader';
 
-type Editing = { transaction?: Transaction } | null;
 type TypeFilter = 'all' | TransactionType;
 
 const typeFilters: { value: TypeFilter; label: string }[] = [
@@ -32,8 +30,8 @@ export function Transactions() {
   const { data: transactions, isLoading, error } = useTransactions(month);
   const { data: accounts } = useAccounts();
   const { data: categories } = useCategories();
+  const { openTransaction } = useTransactionDialog();
 
-  const [editing, setEditing] = useState<Editing>(null);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [accountFilter, setAccountFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -56,129 +54,126 @@ export function Transactions() {
   const hasFilters = typeFilter !== 'all' || accountFilter || search;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Transações</h1>
-        <Button onClick={() => setEditing({})}>
-          <Plus />
-          Nova transação
-        </Button>
-      </header>
-
-      <div className="flex items-center justify-between gap-2">
-        <Button variant="ghost" size="icon" aria-label="Mês anterior" onClick={() => setMonth(shiftMonth(month, -1))}>
-          <ChevronLeft />
-        </Button>
-        <div className="text-center">
-          <p className="font-medium capitalize">{formatMonth(month)}</p>
+    <div className="space-y-3">
+      <PageHeader
+        title="Transações"
+        actions={
+          <Button size="sm" onClick={() => openTransaction()}>
+            <Plus />
+            Nova transação
+          </Button>
+        }
+      >
+        <div className="flex items-center">
+          <Button variant="ghost" size="icon" className="size-7" aria-label="Mês anterior" onClick={() => setMonth(shiftMonth(month, -1))}>
+            <ChevronLeft />
+          </Button>
+          <span className="w-36 text-center text-sm font-medium">{formatMonth(month)}</span>
+          <Button variant="ghost" size="icon" className="size-7" aria-label="Próximo mês" onClick={() => setMonth(shiftMonth(month, 1))}>
+            <ChevronRight />
+          </Button>
           {month !== currentMonth() && (
             <button
               type="button"
               onClick={() => setMonth(currentMonth())}
-              className="text-muted-foreground hover:text-foreground text-xs underline-offset-4 hover:underline"
+              className="text-muted-foreground hover:text-foreground ml-1 text-xs underline-offset-4 hover:underline"
             >
-              voltar para o mês atual
+              hoje
             </button>
           )}
         </div>
-        <Button variant="ghost" size="icon" aria-label="Próximo mês" onClick={() => setMonth(shiftMonth(month, 1))}>
-          <ChevronRight />
-        </Button>
-      </div>
+      </PageHeader>
 
-      <div className="grid grid-cols-3 gap-3">
-        <Summary label="Receitas" value={totals.income} className="text-success" />
-        <Summary label="Despesas" value={totals.expense} className="text-destructive" />
-        <Summary
-          label="Resultado"
-          value={totals.net}
-          className={totals.net < 0 ? 'text-destructive' : totals.net > 0 ? 'text-success' : ''}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <div className="bg-muted inline-flex shrink-0 rounded-md p-0.5">
-          {typeFilters.map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={typeFilter === value}
-              onClick={() => setTypeFilter(value)}
-              className={cn(
-                'text-muted-foreground flex-1 rounded-sm px-3 py-1.5 text-xs font-medium transition-colors',
-                typeFilter === value && 'bg-background text-foreground shadow-xs',
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="sm:w-44">
-          <Select value={accountFilter} onChange={(e) => setAccountFilter(e.target.value)} aria-label="Conta">
-            <option value="">Todas as contas</option>
-            {accounts?.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+        <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="bg-muted inline-flex shrink-0 rounded-md p-0.5">
+            {typeFilters.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={typeFilter === value}
+                onClick={() => setTypeFilter(value)}
+                className={cn(
+                  'text-muted-foreground flex-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
+                  typeFilter === value && 'bg-background text-foreground shadow-xs',
+                )}
+              >
+                {label}
+              </button>
             ))}
-          </Select>
+          </div>
+          <div className="sm:w-44">
+            <Select
+              value={accountFilter}
+              onChange={(e) => setAccountFilter(e.target.value)}
+              aria-label="Conta"
+              className="h-8 text-xs"
+            >
+              <option value="">Todas as contas</option>
+              {accounts?.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="relative sm:w-64">
+            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
+            <Input
+              placeholder="Buscar"
+              aria-label="Buscar"
+              className="h-8 pl-8 text-xs"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
-        <div className="relative flex-1">
-          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-          <Input
-            placeholder="Buscar"
-            aria-label="Buscar"
-            className="pl-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+        <dl className="flex gap-5 text-xs">
+          <Stat label="Receitas" value={totals.income} className="text-success" />
+          <Stat label="Despesas" value={totals.expense} className="text-destructive" />
+          <Stat
+            label="Resultado"
+            value={totals.net}
+            className={totals.net < 0 ? 'text-destructive' : totals.net > 0 ? 'text-success' : ''}
           />
-        </div>
+        </dl>
       </div>
 
-      {error && (
-        <Card className="text-destructive p-4 text-sm">Erro ao carregar transações: {error.message}</Card>
-      )}
+      {error && <p className="text-destructive text-sm">Erro ao carregar transações: {error.message}</p>}
 
       {isLoading ? (
-        <Card className="bg-muted/50 h-48 animate-pulse" />
+        <div className="bg-muted/50 h-64 animate-pulse rounded-lg border" />
       ) : filtered.length === 0 ? (
-        <Card className="text-muted-foreground flex flex-col items-center gap-3 p-10 text-center text-sm">
+        <div className="text-muted-foreground flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-sm">
           {hasFilters ? (
             'Nenhuma transação encontrada com esses filtros.'
           ) : (
             <>
               Nenhuma transação em {formatMonth(month)}.
-              <Button variant="outline" onClick={() => setEditing({})}>
+              <Button variant="outline" size="sm" onClick={() => openTransaction()}>
                 <Plus />
                 Lançar transação
               </Button>
             </>
           )}
-        </Card>
+        </div>
       ) : (
-        <TransactionList transactions={filtered} onSelect={(t) => setEditing({ transaction: t })} />
+        <>
+          <TransactionTable transactions={filtered} onSelect={openTransaction} />
+          <p className="text-muted-foreground text-xs">
+            {filtered.length} {filtered.length === 1 ? 'transação' : 'transações'}
+          </p>
+        </>
       )}
-
-      <Dialog
-        open={editing !== null}
-        onClose={() => setEditing(null)}
-        title={editing?.transaction ? 'Editar transação' : 'Nova transação'}
-      >
-        {editing && (
-          <TransactionForm transaction={editing.transaction} onDone={() => setEditing(null)} />
-        )}
-      </Dialog>
     </div>
   );
 }
 
-function Summary({ label, value, className }: { label: string; value: number; className?: string }) {
+function Stat({ label, value, className }: { label: string; value: number; className?: string }) {
   return (
-    <Card className="p-3 sm:p-4">
-      <p className="text-muted-foreground text-xs">{label}</p>
-      <p className={cn('money mt-1 truncate text-sm font-semibold sm:text-base', className)}>
-        {formatMoney(value)}
-      </p>
-    </Card>
+    <div className="flex items-baseline gap-1.5">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className={cn('money font-medium', className)}>{formatMoney(value)}</dd>
+    </div>
   );
 }
