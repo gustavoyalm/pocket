@@ -16,7 +16,7 @@ type Props = {
 type Field = 'date' | 'category' | 'account' | 'amount';
 
 const cellInput =
-  'h-7 w-full rounded-sm bg-transparent px-1.5 text-sm outline-none placeholder:text-muted-foreground/70 focus:bg-background focus:ring-1 focus:ring-ring aria-invalid:ring-1 aria-invalid:ring-destructive';
+  'h-8 w-full rounded-md border border-border bg-background/60 px-2 text-sm outline-none placeholder:text-muted-foreground/70 focus:border-ring focus:bg-background focus:ring-1 focus:ring-ring aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive';
 
 /** Linha de digitação rápida no topo da tabela: Enter salva e abre a próxima, Esc fecha. */
 export function TransactionInlineRow({ month, onClose }: Props) {
@@ -124,7 +124,7 @@ export function TransactionInlineRow({ month, onClose }: Props) {
   return (
     <>
       <tr onKeyDown={onKeyDown} className="bg-accent/40 border-b">
-        <td className="px-1.5 py-1">
+        <td className="px-2 py-1.5">
           <input
             ref={dateRef}
             aria-label="Data"
@@ -139,8 +139,8 @@ export function TransactionInlineRow({ month, onClose }: Props) {
             className={cn(cellInput, 'money text-xs')}
           />
         </td>
-        <td className="px-1.5 py-1">
-          <div className="flex gap-1">
+        <td className="px-2 py-1.5">
+          <div className="flex gap-2">
             <input
               ref={descriptionRef}
               aria-label="Descrição"
@@ -148,18 +148,18 @@ export function TransactionInlineRow({ month, onClose }: Props) {
               maxLength={200}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className={cn(cellInput, 'flex-1')}
+              className={cn(cellInput, 'min-w-40 flex-1')}
             />
             <input
               aria-label="Tags"
               placeholder="tags, separadas, por vírgula"
               value={tags}
               onChange={(e) => setTags(e.target.value)}
-              className={cn(cellInput, 'w-56 text-xs')}
+              className={cn(cellInput, 'w-32 shrink-0 text-xs xl:w-44')}
             />
           </div>
         </td>
-        <td className="hidden px-1.5 py-1 md:table-cell">
+        <td className="hidden px-2 py-1.5 md:table-cell">
           <CategoryCombobox
             ref={categoryRef}
             value={categoryId}
@@ -168,11 +168,12 @@ export function TransactionInlineRow({ month, onClose }: Props) {
             className={cellInput}
           />
         </td>
-        <td className="hidden px-1.5 py-1 md:table-cell">
+        <td className="hidden px-2 py-1.5 md:table-cell">
           <select
             aria-label="Conta"
             aria-invalid={isInvalid('account')}
             value={account}
+            title={activeAccounts.find((a) => a.id === account)?.name}
             onChange={(e) => setAccountId(e.target.value)}
             className={cn(cellInput, '[&_option]:bg-card text-muted-foreground')}
           >
@@ -183,17 +184,17 @@ export function TransactionInlineRow({ month, onClose }: Props) {
             ))}
           </select>
         </td>
-        <td className="px-1.5 py-1">
-          <div className="flex items-center gap-1">
+        <td className="px-2 py-1.5">
+          <div className="flex items-center gap-2">
           {card && type === 'expense' && (
-            <label className="text-muted-foreground flex shrink-0 items-center text-xs" title="Parcelas">
+            <label className="text-muted-foreground flex shrink-0 items-center gap-0.5 text-xs" title="Parcelas">
               <input
                 aria-label="Parcelas"
                 inputMode="numeric"
                 placeholder="1"
                 value={installments}
                 onChange={(e) => setInstallments(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                className={cn(cellInput, 'money w-7 px-0.5 text-center text-xs')}
+                className={cn(cellInput, 'money w-9 px-1 text-center text-xs')}
               />
               x
             </label>

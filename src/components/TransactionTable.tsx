@@ -50,11 +50,12 @@ export function TransactionTable({
     <Table>
       <THead>
         <tr>
-          <Th className="w-28">Data</Th>
+          {/* min-w: a Descrição é flexível e, sem mínimo, espremeria as demais colunas */}
+          <Th className="w-28 min-w-28">Data</Th>
           <Th>Descrição</Th>
-          <Th className="hidden w-64 md:table-cell">Categoria</Th>
-          <Th className="hidden w-44 md:table-cell">Conta</Th>
-          <Th className="w-36 text-right">Valor</Th>
+          <Th className="hidden w-56 min-w-56 md:table-cell xl:w-64 xl:min-w-64">Categoria</Th>
+          <Th className="hidden w-48 min-w-48 md:table-cell xl:w-56 xl:min-w-56">Conta</Th>
+          <Th className="w-44 min-w-44 text-right xl:w-48 xl:min-w-48">Valor</Th>
         </tr>
       </THead>
       <tbody>
@@ -91,7 +92,7 @@ export function TransactionTable({
                   </span>
                 </Td>
                 <Td className="text-muted-foreground hidden md:table-cell">
-                  <span className="block max-w-44 truncate">
+                  <span className="block max-w-48 truncate xl:max-w-56">
                     {from?.name} → {to?.name}
                   </span>
                 </Td>
@@ -139,7 +140,7 @@ export function TransactionTable({
                 </div>
               </Td>
               <Td className="hidden md:table-cell">
-                <span className="flex max-w-64 items-center gap-2">
+                <span className="flex max-w-56 items-center gap-2 xl:max-w-64">
                   <span
                     className="size-2 shrink-0 rounded-full"
                     style={{ backgroundColor: categories.colorOf(sub) }}
@@ -151,7 +152,7 @@ export function TransactionTable({
                 </span>
               </Td>
               <Td className="text-muted-foreground hidden md:table-cell">
-                <span className="block max-w-44 truncate">{account?.name}</span>
+                <span className="block max-w-48 truncate xl:max-w-56">{account?.name}</span>
               </Td>
               <Td
                 className={cn(
