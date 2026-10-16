@@ -7,6 +7,7 @@ import { Accounts } from '@/pages/Accounts';
 import { Dashboard } from '@/pages/Dashboard';
 import { Login } from '@/pages/Login';
 import { NotConfigured } from '@/pages/NotConfigured';
+import { Transactions } from '@/pages/Transactions';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route element={<RequireAuth />}>
               <Route index element={<Dashboard />} />
+              <Route path="transacoes" element={<Transactions />} />
               <Route path="contas" element={<Accounts />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
