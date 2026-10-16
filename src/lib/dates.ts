@@ -41,7 +41,30 @@ export function formatMonth(month: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-const weekdayFmt = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
+/**
+ * Lê uma data digitada no estilo planilha, relativa ao mês informado ("YYYY-MM"):
+ * "5" → dia 5 do mês · "5/9" → 05/09 do mesmo ano · "5/9/25" ou "5/9/2025".
+ * Retorna "YYYY-MM-DD" ou null se for inválida.
+ */
+export function parseDateInput(text: string, month: string): string | null {
+  const match = text.trim().match(/^(\d{1,2})(?:[/.-](\d{1,2})(?:[/.-](\d{2}|\d{4}))?)?$/);
+  if (!match) return null;
+  const [, d, m, y] = match;
+  const year = y ? (y.length === 2 ? 2000 + Number(y) : Number(y)) : Number(month.slice(0, 4));
+  const mon = m ? Number(m) : Number(month.slice(5, 7));
+  const day = Number(d);
+  const date = new Date(year, mon - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== mon - 1 || date.getDate() !== day) return null;
+  return `${year}-${pad(mon)}-${pad(day)}`;
+}
+
+/** "2026-10-05" → "05/10" (ou "05/10/2025" se o ano for diferente do ano de referência). */
+export function formatDateInput(iso: string, referenceMonth: string) {
+  const [y, m, d] = iso.split('-');
+  return y === referenceMonth.slice(0, 4) ? `${d}/${m}` : `${d}/${m}/${y}`;
+}
+
+const weekdayFmt =new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
 
 /** "15/10" + dia da semana ("qua"), para colunas de tabela. */
 export function formatShortDate(iso: string) {

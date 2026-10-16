@@ -1,0 +1,202 @@
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useAccounts } from '@/lib/accounts';
+import { useCategories } from '@/lib/categories';
+import { currentMonth, formatDateInput, parseDateInput, todayISO } from '@/lib/dates';
+import { normalizeTag, useSaveTransaction } from '@/lib/transactions';
+import { cn, parseMoney } from '@/lib/utils';
+import { CategoryCombobox, type CategoryComboboxHandle } from './CategoryCombobox';
+
+type Props = {
+  /** Mês exibido ("YYYY-MM"): base para datas digitadas só com o dia */
+  month: string;
+  onClose: () => void;
+};
+
+type Field = 'date' | 'category' | 'account' | 'amount';
+
+const cellInput =
+  'h-7 w-full rounded-sm bg-transparent px-1.5 text-sm outline-none placeholder:text-muted-foreground/70 focus:bg-background focus:ring-1 focus:ring-ring aria-invalid:ring-1 aria-invalid:ring-destructive';
+
+/** Linha de digitação rápida no topo da tabela: Enter salva e abre a próxima, Esc fecha. */
+export function TransactionInlineRow({ month, onClose }: Props) {
+  const { data: accounts } = useAccounts();
+  const { data: categories } = useCategories();
+  const save = useSaveTransaction();
+
+  const activeAccounts = accounts?.filter((a) => !a.archived) ?? [];
+  const defaultDate = month === currentMonth() ? todayISO() : `${month}-01`;
+
+  const [date, setDate] = useState(formatDateInput(defaultDate, month));
+  const [description, setDescription] = useState('');
+  const [tags, setTags] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [accountId, setAccountId] = useState('');
+  const [amount, setAmount] = useState('');
+  const [invalid, setInvalid] = useState<Field[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const descriptionRef = useRef<HTMLInputElement>(null);
+  const categoryRef = useRef<CategoryComboboxHandle>(null);
+  const dateRef = useRef<HTMLInputElement>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
+  useEffect(() => descriptionRef.current?.focus(), []);
+
+  const account = accountId || activeAccounts[0]?.id || '';
+  const type = categories?.find((c) => c.id === categoryId)?.type ?? 'expense';
+
+  async function submit() {
+    const parsedDate = parseDateInput(date, month);
+    const value = parseMoney(amount);
+    const problems: Field[] = [];
+    if (!parsedDate) problems.push('date');
+    if (!categoryId) problems.push('category');
+    if (!account) problems.push('account');
+    if (value === null || value <= 0) problems.push('amount');
+    setInvalid(problems);
+    // Leva o cursor ao primeiro campo com problema
+    ({ date: dateRef, category: categoryRef, amount: amountRef, account: null })[problems[0] ?? 'account']?.current?.focus();
+    if (problems.length) {
+      setError(
+        {
+          date: 'Data inválida — use 15, 15/10 ou 15/10/2026.',
+          category: 'Escolha uma subcategoria.',
+          account: 'Cadastre uma conta antes.',
+          amount: 'Informe um valor maior que zero.',
+        }[problems[0]],
+      );
+      return;
+    }
+    setError(null);
+    try {
+      await save.mutateAsync({
+        date: parsedDate!,
+        description: description.trim() || null,
+        tags: tags.split(',').map(normalizeTag).filter(Boolean),
+        category_id: categoryId,
+        account_id: account,
+        type,
+        amount: value!,
+      });
+      // Pronto para a próxima: mantém data e conta
+      setDescription('');
+      setTags('');
+      setCategoryId('');
+      setAmount('');
+      descriptionRef.current?.focus();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível salvar.');
+    }
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLTableRowElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void submit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      onClose();
+    }
+  }
+
+  const isInvalid = (f: Field) => invalid.includes(f);
+
+  return (
+    <>
+      <tr onKeyDown={onKeyDown} className="bg-accent/40 border-b">
+        <td className="px-1.5 py-1">
+          <input
+            ref={dateRef}
+            aria-label="Data"
+            aria-invalid={isInvalid('date')}
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            onFocus={(e) => e.target.select()}
+            onBlur={() => {
+              const parsed = parseDateInput(date, month);
+              if (parsed) setDate(formatDateInput(parsed, month));
+            }}
+            className={cn(cellInput, 'money text-xs')}
+          />
+        </td>
+        <td className="px-1.5 py-1">
+          <div className="flex gap-1">
+            <input
+              ref={descriptionRef}
+              aria-label="Descrição"
+              placeholder="Descrição"
+              maxLength={200}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className={cn(cellInput, 'flex-1')}
+            />
+            <input
+              aria-label="Tags"
+              placeholder="tags, separadas, por vírgula"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              className={cn(cellInput, 'w-56 text-xs')}
+            />
+          </div>
+        </td>
+        <td className="hidden px-1.5 py-1 md:table-cell">
+          <CategoryCombobox
+            ref={categoryRef}
+            value={categoryId}
+            onChange={setCategoryId}
+            aria-invalid={isInvalid('category')}
+            className={cellInput}
+          />
+        </td>
+        <td className="hidden px-1.5 py-1 md:table-cell">
+          <select
+            aria-label="Conta"
+            aria-invalid={isInvalid('account')}
+            value={account}
+            onChange={(e) => setAccountId(e.target.value)}
+            className={cn(cellInput, '[&_option]:bg-card text-muted-foreground')}
+          >
+            {activeAccounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </td>
+        <td className="px-1.5 py-1">
+          <input
+            ref={amountRef}
+            aria-label="Valor"
+            aria-invalid={isInvalid('amount')}
+            inputMode="decimal"
+            placeholder="0,00"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className={cn(
+              cellInput,
+              'money text-right font-medium',
+              type === 'income' ? 'text-success' : 'text-destructive',
+            )}
+          />
+        </td>
+      </tr>
+      <tr className="border-b">
+        <td colSpan={5} className="text-muted-foreground px-3 py-1 text-[11px]">
+          {error ? (
+            <span className="text-destructive">{error}</span>
+          ) : save.isPending ? (
+            'Salvando…'
+          ) : (
+            <>
+              <Kbd>Enter</Kbd> salva e abre a próxima · <Kbd>Tab</Kbd> próximo campo · <Kbd>Esc</Kbd> cancela
+              · a categoria define se é despesa ou receita
+            </>
+          )}
+        </td>
+      </tr>
+    </>
+  );
+}
+
+function Kbd({ children }: { children: string }) {
+  return <kbd className="bg-muted rounded border px-1 font-mono text-[10px]">{children}</kbd>;
+}

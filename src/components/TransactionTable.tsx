@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useAccounts } from '@/lib/accounts';
 import { useCategoryLookup } from '@/lib/categories';
 import { formatShortDate } from '@/lib/dates';
@@ -11,9 +11,11 @@ type Props = {
   onSelect: (t: Transaction) => void;
   /** Clique numa tag (ex.: para filtrar). Sem isso, as tags só são exibidas. */
   onTagClick?: (tag: string) => void;
+  /** Linha extra no topo (ex.: digitação rápida de uma nova transação) */
+  newRow?: ReactNode;
 };
 
-export function TransactionTable({ transactions, onSelect, onTagClick }: Props) {
+export function TransactionTable({ transactions, onSelect, onTagClick, newRow }: Props) {
   const { data: accounts } = useAccounts();
   const categories = useCategoryLookup();
   const accountsById = useMemo(() => new Map(accounts?.map((a) => [a.id, a])), [accounts]);
@@ -22,7 +24,7 @@ export function TransactionTable({ transactions, onSelect, onTagClick }: Props) 
     <Table>
       <THead>
         <tr>
-          <Th className="w-24">Data</Th>
+          <Th className="w-28">Data</Th>
           <Th>Descrição</Th>
           <Th className="hidden w-64 md:table-cell">Categoria</Th>
           <Th className="hidden w-44 md:table-cell">Conta</Th>
@@ -30,6 +32,7 @@ export function TransactionTable({ transactions, onSelect, onTagClick }: Props) 
         </tr>
       </THead>
       <tbody>
+        {newRow}
         {transactions.map((t) => {
           const sub = categories.get(t.category_id);
           const parent = categories.parentOf(sub);

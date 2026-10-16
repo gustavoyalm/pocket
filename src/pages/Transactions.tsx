@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
 import { useAccounts } from '@/lib/accounts';
@@ -7,6 +7,7 @@ import { currentMonth, formatMonth, isValidMonth, shiftMonth } from '@/lib/dates
 import { summarize, useTags, useTransactions, type TransactionType } from '@/lib/transactions';
 import { cn, formatMoney } from '@/lib/utils';
 import { useTransactionDialog } from '@/components/TransactionDialog';
+import { TransactionInlineRow } from '@/components/TransactionInlineRow';
 import { TransactionTable } from '@/components/TransactionTable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +31,18 @@ export function Transactions() {
   const { data: transactions, isLoading, error } = useTransactions(month);
   const { data: accounts } = useAccounts();
   const { data: categories } = useCategories();
-  const { openTransaction } = useTransactionDialog();
+  const { openTransaction, setNewTransactionHandler } = useTransactionDialog();
+
+  // Teste: no desktop, nova transação é digitada direto numa linha da tabela (o "N" também abre)
+  const [adding, setAdding] = useState(false);
+  const startNew = useCallback(() => {
+    if (matchMedia('(min-width: 768px)').matches) setAdding(true);
+    else openTransaction();
+  }, [openTransaction]);
+  useEffect(() => {
+    setNewTransactionHandler(startNew);
+    return () => setNewTransactionHandler(null);
+  }, [setNewTransactionHandler, startNew]);
 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [accountFilter, setAccountFilter] = useState('');
@@ -78,7 +90,7 @@ export function Transactions() {
         actions={
           <>
             <Totals totals={totals} className="mr-3 hidden lg:flex" />
-            <Button size="sm" onClick={() => openTransaction()}>
+            <Button size="sm" onClick={startNew}>
               <Plus />
               Nova transação
             </Button>
@@ -195,14 +207,14 @@ export function Transactions() {
 
       {isLoading ? (
         <div className="bg-muted/50 h-64 animate-pulse rounded-lg border" />
-      ) : filtered.length === 0 ? (
+      ) : filtered.length === 0 && !adding ? (
         <div className="text-muted-foreground flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-sm">
           {hasFilters ? (
             'Nenhuma transação encontrada com esses filtros.'
           ) : (
             <>
               Nenhuma transação em {formatMonth(month)}.
-              <Button variant="outline" size="sm" onClick={() => openTransaction()}>
+              <Button variant="outline" size="sm" onClick={startNew}>
                 <Plus />
                 Lançar transação
               </Button>
@@ -211,7 +223,12 @@ export function Transactions() {
         </div>
       ) : (
         <>
-          <TransactionTable transactions={filtered} onSelect={openTransaction} onTagClick={setTagFilter} />
+          <TransactionTable
+            transactions={filtered}
+            onSelect={openTransaction}
+            onTagClick={setTagFilter}
+            newRow={adding && <TransactionInlineRow month={month} onClose={() => setAdding(false)} />}
+          />
           <p className="text-muted-foreground text-xs">
             {filtered.length} {filtered.length === 1 ? 'transação' : 'transações'}
           </p>
