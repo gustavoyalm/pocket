@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { ArrowLeftRight } from 'lucide-react';
 import { useAccounts } from '@/lib/accounts';
 import { formatInvoice } from '@/lib/cards';
@@ -8,6 +8,7 @@ import { DEFAULT_TAG_COLOR, useTagLookup } from '@/lib/tags';
 import { useToggleTransactionPaid, type Transaction } from '@/lib/transactions';
 import { useToggleTransferPaid, type Transfer } from '@/lib/transfers';
 import { cn, formatMoney } from '@/lib/utils';
+import { ConfirmPopover } from './ConfirmPopover';
 import { PaidToggle } from './PaidToggle';
 import { Table, Td, Th, THead, Tr } from './ui/table';
 
@@ -28,6 +29,20 @@ type Props = {
 type Row =
   | { kind: 'transaction'; date: string; created: string; item: Transaction }
   | { kind: 'transfer'; date: string; created: string; item: Transfer };
+
+const verbs = {
+  expense: ['pago', 'pendente'],
+  income: ['recebido', 'a receber'],
+  transfer: ['efetivada', 'pendente'],
+} as const;
+
+/** Título e botão da confirmação, conforme o tipo e o sentido da troca. */
+function confirmText(row: Row) {
+  const kind = row.kind === 'transfer' ? 'transfer' : row.item.type;
+  const [done, pending] = verbs[kind];
+  const target = row.item.paid ? pending : done;
+  return { title: `Marcar como ${target}?`, confirmLabel: `Marcar como ${target}` };
+}
 
 export function TransactionTable({
   transactions,
@@ -53,6 +68,29 @@ export function TransactionTable({
   const toggleTransaction = useToggleTransactionPaid();
   const toggleTransfer = useToggleTransferPaid();
   const today = todayISO();
+
+  // Confirmação antes de trocar pago/pendente (evita clique acidental)
+  const [confirm, setConfirm] = useState<{ row: Row; anchor: DOMRect } | null>(null);
+  const describe = (row: Row) => {
+    const name =
+      row.kind === 'transfer'
+        ? row.item.description || 'Transferência'
+        : row.item.description || categories.get(row.item.category_id)?.name || 'Sem descrição';
+    const { date } = formatShortDate(row.date);
+    return (
+      <>
+        {name} · <span className="money">{formatMoney(row.item.amount)}</span> · {date}
+      </>
+    );
+  };
+  const confirmChange = () => {
+    if (!confirm) return;
+    const { row } = confirm;
+    const paid = !row.item.paid;
+    if (row.kind === 'transfer') toggleTransfer.mutate({ id: row.item.id, paid });
+    else toggleTransaction.mutate({ id: row.item.id, paid });
+    setConfirm(null);
+  };
   const accountsById = useMemo(() => new Map(accounts?.map((a) => [a.id, a])), [accounts]);
 
   const rows = useMemo<Row[]>(
@@ -65,164 +103,177 @@ export function TransactionTable({
   );
 
   return (
-    <Table>
-      <THead>
-        <tr>
-          {/* min-w: a Descrição é flexível e, sem mínimo, espremeria as demais colunas */}
-          <Th className="w-9 min-w-9 pr-0">
-            <span className="sr-only">Situação</span>
-          </Th>
-          <Th className="w-28 min-w-28">Data</Th>
-          <Th>Descrição</Th>
-          <Th className={cn('hidden md:table-cell', col.category)}>Categoria</Th>
-          <Th className={cn('hidden w-48 min-w-48 xl:w-56 xl:min-w-56', !compact && 'md:table-cell')}>Conta</Th>
-          <Th className={cn('text-right', col.value)}>Valor</Th>
-        </tr>
-      </THead>
-      <tbody>
-        {newRow}
-        {rows.map((row) => {
-          const { date, weekday } = formatShortDate(row.date);
-          const paid = row.item.paid;
-          const overdue = !paid && row.date < today;
-          const dateCell = (
-            <Td className={cn('money text-xs', overdue && 'text-destructive')}>
-              {date} <span className={overdue ? 'text-destructive/70' : 'text-muted-foreground'}>{weekday}</span>
-            </Td>
-          );
+    <>
+      <Table>
+        <THead>
+          <tr>
+            {/* min-w: a Descrição é flexível e, sem mínimo, espremeria as demais colunas */}
+            <Th className="w-9 min-w-9 pr-0">
+              <span className="sr-only">Situação</span>
+            </Th>
+            <Th className="w-28 min-w-28">Data</Th>
+            <Th>Descrição</Th>
+            <Th className={cn('hidden md:table-cell', col.category)}>Categoria</Th>
+            <Th className={cn('hidden w-48 min-w-48 xl:w-56 xl:min-w-56', !compact && 'md:table-cell')}>Conta</Th>
+            <Th className={cn('text-right', col.value)}>Valor</Th>
+          </tr>
+        </THead>
+        <tbody>
+          {newRow}
+          {rows.map((row) => {
+            const { date, weekday } = formatShortDate(row.date);
+            const paid = row.item.paid;
+            const overdue = !paid && row.date < today;
+            const dateCell = (
+              <Td className={cn('money text-xs', overdue && 'text-destructive')}>
+                {date} <span className={overdue ? 'text-destructive/70' : 'text-muted-foreground'}>{weekday}</span>
+              </Td>
+            );
 
-          if (row.kind === 'transfer') {
+            if (row.kind === 'transfer') {
+              const t = row.item;
+              const from = accountsById.get(t.from_account_id);
+              const to = accountsById.get(t.to_account_id);
+              return (
+                <Tr key={`tr-${t.id}`} onClick={onSelectTransfer && (() => onSelectTransfer(t))}>
+                  <Td className="pr-0">
+                    <PaidToggle
+                      paid={t.paid}
+                      overdue={overdue}
+                      kind="transfer"
+                      onToggle={(anchor) => setConfirm({ row, anchor })}
+                    />
+                  </Td>
+                  {dateCell}
+                  <Td className="w-full max-w-0">
+                    <span className="block truncate">
+                      {t.description || (to?.type === 'credit_card' ? 'Pagamento de fatura' : 'Transferência')}
+                      {t.invoice_month && (
+                        <span className="text-muted-foreground ml-2 text-xs">
+                          fatura {formatInvoice(t.invoice_month.slice(0, 7))}
+                        </span>
+                      )}
+                    </span>
+                  </Td>
+                  <Td className="text-muted-foreground hidden md:table-cell">
+                    <span className="flex items-center gap-2">
+                      <ArrowLeftRight className="size-3 shrink-0" />
+                      Transferência
+                    </span>
+                  </Td>
+                  <Td className={accountCell}>
+                    <span className="block max-w-48 truncate xl:max-w-56">
+                      {from?.name} → {to?.name}
+                    </span>
+                  </Td>
+                  <Td className={cn('money text-muted-foreground text-right font-medium', !paid && 'opacity-60')}>
+                    {formatMoney(t.amount)}
+                  </Td>
+                </Tr>
+              );
+            }
+
             const t = row.item;
-            const from = accountsById.get(t.from_account_id);
-            const to = accountsById.get(t.to_account_id);
+            const sub = categories.get(t.category_id);
+            const parent = categories.parentOf(sub);
+            const account = accountsById.get(t.account_id);
             return (
-              <Tr key={`tr-${t.id}`} onClick={onSelectTransfer && (() => onSelectTransfer(t))}>
+              <Tr key={t.id} onClick={() => onSelect(t)}>
                 <Td className="pr-0">
                   <PaidToggle
                     paid={t.paid}
                     overdue={overdue}
-                    kind="transfer"
-                    onToggle={() => toggleTransfer.mutate({ id: t.id, paid: !t.paid })}
+                    kind={t.type}
+                    onToggle={(anchor) => setConfirm({ row, anchor })}
                   />
                 </Td>
                 {dateCell}
                 <Td className="w-full max-w-0">
-                  <span className="block truncate">
-                    {t.description || (to?.type === 'credit_card' ? 'Pagamento de fatura' : 'Transferência')}
-                    {t.invoice_month && (
-                      <span className="text-muted-foreground ml-2 text-xs">
-                        fatura {formatInvoice(t.invoice_month.slice(0, 7))}
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <span className="truncate">
+                      {t.description || <span className="text-muted-foreground">{sub?.name ?? 'Sem descrição'}</span>}
+                      {t.notes && <span className="text-muted-foreground ml-2 text-xs">{t.notes}</span>}
+                    </span>
+                    {t.installment_total && (
+                      <span className="money text-muted-foreground shrink-0 rounded border px-1 text-[11px] leading-4">
+                        {t.installment_number}/{t.installment_total}
                       </span>
                     )}
-                  </span>
+                    {t.tagIds.map((tagId) => {
+                      const tag = tags.get(tagId);
+                      if (!tag) return null;
+                      const color = tag.color ?? DEFAULT_TAG_COLOR;
+                      return (
+                        <button
+                          key={tagId}
+                          type="button"
+                          title={onTagClick ? `Filtrar por "${tag.name}"` : undefined}
+                          onClick={(e) => {
+                            if (!onTagClick) return;
+                            e.stopPropagation();
+                            onTagClick(tagId);
+                          }}
+                          style={{ backgroundColor: `${color}26`, color }}
+                          className={cn(
+                            'shrink-0 rounded px-1.5 text-[11px] leading-5 font-medium',
+                            onTagClick ? 'cursor-pointer hover:brightness-125' : 'cursor-default',
+                          )}
+                        >
+                          {tag.name}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </Td>
-                <Td className="text-muted-foreground hidden md:table-cell">
-                  <span className="flex items-center gap-2">
-                    <ArrowLeftRight className="size-3 shrink-0" />
-                    Transferência
+                <Td className="hidden md:table-cell">
+                  <span className={cn('flex items-center gap-2', col.categoryMax)}>
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: categories.colorOf(sub) }}
+                    />
+                    <span className="truncate">
+                      {parent && <span className="text-muted-foreground">{parent.name} › </span>}
+                      {sub?.name}
+                    </span>
                   </span>
                 </Td>
                 <Td className={accountCell}>
                   <span className="block max-w-48 truncate xl:max-w-56">
-                    {from?.name} → {to?.name}
+                    {account?.name}
+                    {t.invoice_month && (
+                      <span className="text-muted-foreground/70 text-xs" title="Fatura">
+                        {' '}
+                        · {formatInvoice(t.invoice_month.slice(0, 7))}
+                      </span>
+                    )}
                   </span>
                 </Td>
-                <Td className={cn('money text-muted-foreground text-right font-medium', !paid && 'opacity-60')}>
+                <Td
+                  className={cn(
+                    'money text-right font-medium',
+                    t.type === 'income' ? 'text-success' : 'text-destructive',
+                    !paid && 'opacity-60',
+                  )}
+                >
+                  {t.type === 'income' ? '+' : '−'}
                   {formatMoney(t.amount)}
                 </Td>
               </Tr>
             );
-          }
-
-          const t = row.item;
-          const sub = categories.get(t.category_id);
-          const parent = categories.parentOf(sub);
-          const account = accountsById.get(t.account_id);
-          return (
-            <Tr key={t.id} onClick={() => onSelect(t)}>
-              <Td className="pr-0">
-                <PaidToggle
-                  paid={t.paid}
-                  overdue={overdue}
-                  kind={t.type}
-                  onToggle={() => toggleTransaction.mutate({ id: t.id, paid: !t.paid })}
-                />
-              </Td>
-              {dateCell}
-              <Td className="w-full max-w-0">
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <span className="truncate">
-                    {t.description || <span className="text-muted-foreground">{sub?.name ?? 'Sem descrição'}</span>}
-                    {t.notes && <span className="text-muted-foreground ml-2 text-xs">{t.notes}</span>}
-                  </span>
-                  {t.installment_total && (
-                    <span className="money text-muted-foreground shrink-0 rounded border px-1 text-[11px] leading-4">
-                      {t.installment_number}/{t.installment_total}
-                    </span>
-                  )}
-                  {t.tagIds.map((tagId) => {
-                    const tag = tags.get(tagId);
-                    if (!tag) return null;
-                    const color = tag.color ?? DEFAULT_TAG_COLOR;
-                    return (
-                      <button
-                        key={tagId}
-                        type="button"
-                        title={onTagClick ? `Filtrar por "${tag.name}"` : undefined}
-                        onClick={(e) => {
-                          if (!onTagClick) return;
-                          e.stopPropagation();
-                          onTagClick(tagId);
-                        }}
-                        style={{ backgroundColor: `${color}26`, color }}
-                        className={cn(
-                          'shrink-0 rounded px-1.5 text-[11px] leading-5 font-medium',
-                          onTagClick ? 'cursor-pointer hover:brightness-125' : 'cursor-default',
-                        )}
-                      >
-                        {tag.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </Td>
-              <Td className="hidden md:table-cell">
-                <span className={cn('flex items-center gap-2', col.categoryMax)}>
-                  <span
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: categories.colorOf(sub) }}
-                  />
-                  <span className="truncate">
-                    {parent && <span className="text-muted-foreground">{parent.name} › </span>}
-                    {sub?.name}
-                  </span>
-                </span>
-              </Td>
-              <Td className={accountCell}>
-                <span className="block max-w-48 truncate xl:max-w-56">
-                  {account?.name}
-                  {t.invoice_month && (
-                    <span className="text-muted-foreground/70 text-xs" title="Fatura">
-                      {' '}
-                      · {formatInvoice(t.invoice_month.slice(0, 7))}
-                    </span>
-                  )}
-                </span>
-              </Td>
-              <Td
-                className={cn(
-                  'money text-right font-medium',
-                  t.type === 'income' ? 'text-success' : 'text-destructive',
-                  !paid && 'opacity-60',
-                )}
-              >
-                {t.type === 'income' ? '+' : '−'}
-                {formatMoney(t.amount)}
-              </Td>
-            </Tr>
-          );
-        })}
-      </tbody>
-    </Table>
+          })}
+        </tbody>
+      </Table>
+      {confirm && (
+        <ConfirmPopover
+          anchor={confirm.anchor}
+          {...confirmText(confirm.row)}
+          tone={confirm.row.item.paid ? 'default' : 'success'}
+          onConfirm={confirmChange}
+          onCancel={() => setConfirm(null)}
+        >
+          {describe(confirm.row)}
+        </ConfirmPopover>
+      )}
+    </>
   );
 }

@@ -6,7 +6,8 @@ type Props = {
   /** Pendente com data já passada */
   overdue?: boolean;
   kind?: 'expense' | 'income' | 'transfer';
-  onToggle: () => void;
+  /** Recebe a posição da bolinha (para ancorar a confirmação) */
+  onToggle: (anchor: DOMRect) => void;
   disabled?: boolean;
 };
 
@@ -30,7 +31,7 @@ export function PaidToggle({ paid, overdue, kind = 'expense', onToggle, disabled
       disabled={disabled}
       onClick={(e) => {
         e.stopPropagation(); // não abre a edição da linha
-        onToggle();
+        onToggle(e.currentTarget.getBoundingClientRect());
       }}
       className={cn(
         'flex size-4.5 shrink-0 items-center justify-center rounded-full border transition-colors',

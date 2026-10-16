@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from 'react';
+import type { ComponentProps } from 'react';
 import { cn } from '@/lib/utils';
 
 type Variant = 'default' | 'secondary' | 'ghost' | 'outline';
@@ -22,7 +22,7 @@ export function Button({
   variant = 'default',
   size = 'default',
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: Size }) {
+}: ComponentProps<'button'> & { variant?: Variant; size?: Size }) {
   return (
     <button
       className={cn(
