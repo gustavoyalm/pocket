@@ -19,6 +19,7 @@ export function Accounts() {
   const archived = accounts?.filter((a) => a.archived) ?? [];
   const visible = showArchived ? [...active, ...archived] : active;
   const total = active.reduce((sum, a) => sum + a.balance, 0);
+  const projectedTotal = active.reduce((sum, a) => sum + a.projectedBalance, 0);
 
   return (
     <div className="space-y-3">
@@ -64,7 +65,10 @@ export function Accounts() {
               <Th>Conta</Th>
               <Th className="hidden w-64 sm:table-cell">Tipo</Th>
               <Th className="hidden w-40 text-right md:table-cell">Limite disponível</Th>
-              <Th className="w-40 text-right">Saldo atual</Th>
+              <Th className="w-40 min-w-40 text-right">Saldo atual</Th>
+              <Th className="hidden w-40 min-w-40 text-right sm:table-cell" title="Inclui transações pendentes">
+                Saldo previsto
+              </Th>
             </tr>
           </THead>
           <tbody>
@@ -86,10 +90,19 @@ export function Accounts() {
                   )}
                 </Td>
                 <Td className="money text-muted-foreground hidden text-right md:table-cell">
-                  {a.credit_limit != null ? formatMoney(Number(a.credit_limit) + a.balance) : ''}
+                  {/* o limite é consumido por todas as compras, pagas ou não */}
+                  {a.credit_limit != null ? formatMoney(Number(a.credit_limit) + a.projectedBalance) : ''}
                 </Td>
                 <Td className={cn('money text-right font-medium', a.balance < 0 && 'text-destructive')}>
                   {formatMoney(a.balance)}
+                </Td>
+                <Td
+                  className={cn(
+                    'money text-muted-foreground hidden text-right sm:table-cell',
+                    a.projectedBalance < 0 && 'text-destructive/80',
+                  )}
+                >
+                  {formatMoney(a.projectedBalance)}
                 </Td>
               </Tr>
             ))}
@@ -101,6 +114,14 @@ export function Accounts() {
               <Td className="hidden md:table-cell" />
               <Td className={cn('money text-right font-semibold', total < 0 && 'text-destructive')}>
                 {formatMoney(total)}
+              </Td>
+              <Td
+                className={cn(
+                  'money text-muted-foreground hidden text-right font-semibold sm:table-cell',
+                  projectedTotal < 0 && 'text-destructive/80',
+                )}
+              >
+                {formatMoney(projectedTotal)}
               </Td>
             </tr>
           </tfoot>

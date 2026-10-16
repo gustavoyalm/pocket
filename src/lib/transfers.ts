@@ -63,6 +63,28 @@ export function useSaveTransfer() {
   });
 }
 
+/** Marca como efetivada/pendente, com atualização otimista. */
+export function useToggleTransferPaid() {
+  const qc = useQueryClient();
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async ({ id, paid }: { id: string; paid: boolean }) => {
+      const { error } = await supabase.from('transfers').update({ paid }).eq('id', id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, paid }) => {
+      await qc.cancelQueries({ queryKey: ['transfers'] });
+      const previous = qc.getQueriesData<Transfer[]>({ queryKey: ['transfers'] });
+      qc.setQueriesData<Transfer[]>({ queryKey: ['transfers'] }, (rows) =>
+        Array.isArray(rows) ? rows.map((t) => (t.id === id ? { ...t, paid } : t)) : rows,
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => ctx?.previous.forEach(([key, data]) => qc.setQueryData(key, data)),
+    onSettled: invalidate,
+  });
+}
+
 export function useDeleteTransfer() {
   const invalidate = useInvalidate();
   return useMutation({

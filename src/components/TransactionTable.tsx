@@ -3,11 +3,12 @@ import { ArrowLeftRight } from 'lucide-react';
 import { useAccounts } from '@/lib/accounts';
 import { formatInvoice } from '@/lib/cards';
 import { useCategoryLookup } from '@/lib/categories';
-import { formatShortDate } from '@/lib/dates';
+import { formatShortDate, todayISO } from '@/lib/dates';
 import { DEFAULT_TAG_COLOR, useTagLookup } from '@/lib/tags';
-import type { Transaction } from '@/lib/transactions';
-import type { Transfer } from '@/lib/transfers';
+import { useToggleTransactionPaid, type Transaction } from '@/lib/transactions';
+import { useToggleTransferPaid, type Transfer } from '@/lib/transfers';
 import { cn, formatMoney } from '@/lib/utils';
+import { PaidToggle } from './PaidToggle';
 import { Table, Td, Th, THead, Tr } from './ui/table';
 
 type Props = {
@@ -20,6 +21,8 @@ type Props = {
   onTagClick?: (tagId: string) => void;
   /** Linha extra no topo (ex.: digitação rápida de uma nova transação) */
   newRow?: ReactNode;
+  /** Versão para espaços estreitos (ex.: Visão geral): sem coluna Conta e colunas menores */
+  compact?: boolean;
 };
 
 type Row =
@@ -33,10 +36,23 @@ export function TransactionTable({
   onSelectTransfer,
   onTagClick,
   newRow,
+  compact = false,
 }: Props) {
+  // Larguras das colunas fixas (a Descrição fica com o resto)
+  const col = compact
+    ? { category: 'w-48 min-w-48', categoryMax: 'max-w-48', value: 'w-32 min-w-32' }
+    : {
+        category: 'w-56 min-w-56 xl:w-64 xl:min-w-64',
+        categoryMax: 'max-w-56 xl:max-w-64',
+        value: 'w-44 min-w-44 xl:w-48 xl:min-w-48',
+      };
+  const accountCell = cn('text-muted-foreground hidden', !compact && 'md:table-cell');
   const { data: accounts } = useAccounts();
   const categories = useCategoryLookup();
   const tags = useTagLookup();
+  const toggleTransaction = useToggleTransactionPaid();
+  const toggleTransfer = useToggleTransferPaid();
+  const today = todayISO();
   const accountsById = useMemo(() => new Map(accounts?.map((a) => [a.id, a])), [accounts]);
 
   const rows = useMemo<Row[]>(
@@ -53,20 +69,25 @@ export function TransactionTable({
       <THead>
         <tr>
           {/* min-w: a Descrição é flexível e, sem mínimo, espremeria as demais colunas */}
+          <Th className="w-9 min-w-9 pr-0">
+            <span className="sr-only">Situação</span>
+          </Th>
           <Th className="w-28 min-w-28">Data</Th>
           <Th>Descrição</Th>
-          <Th className="hidden w-56 min-w-56 md:table-cell xl:w-64 xl:min-w-64">Categoria</Th>
-          <Th className="hidden w-48 min-w-48 md:table-cell xl:w-56 xl:min-w-56">Conta</Th>
-          <Th className="w-44 min-w-44 text-right xl:w-48 xl:min-w-48">Valor</Th>
+          <Th className={cn('hidden md:table-cell', col.category)}>Categoria</Th>
+          <Th className={cn('hidden w-48 min-w-48 xl:w-56 xl:min-w-56', !compact && 'md:table-cell')}>Conta</Th>
+          <Th className={cn('text-right', col.value)}>Valor</Th>
         </tr>
       </THead>
       <tbody>
         {newRow}
         {rows.map((row) => {
           const { date, weekday } = formatShortDate(row.date);
+          const paid = row.item.paid;
+          const overdue = !paid && row.date < today;
           const dateCell = (
-            <Td className="money text-xs">
-              {date} <span className="text-muted-foreground">{weekday}</span>
+            <Td className={cn('money text-xs', overdue && 'text-destructive')}>
+              {date} <span className={overdue ? 'text-destructive/70' : 'text-muted-foreground'}>{weekday}</span>
             </Td>
           );
 
@@ -76,6 +97,14 @@ export function TransactionTable({
             const to = accountsById.get(t.to_account_id);
             return (
               <Tr key={`tr-${t.id}`} onClick={onSelectTransfer && (() => onSelectTransfer(t))}>
+                <Td className="pr-0">
+                  <PaidToggle
+                    paid={t.paid}
+                    overdue={overdue}
+                    kind="transfer"
+                    onToggle={() => toggleTransfer.mutate({ id: t.id, paid: !t.paid })}
+                  />
+                </Td>
                 {dateCell}
                 <Td className="w-full max-w-0">
                   <span className="block truncate">
@@ -93,12 +122,14 @@ export function TransactionTable({
                     Transferência
                   </span>
                 </Td>
-                <Td className="text-muted-foreground hidden md:table-cell">
+                <Td className={accountCell}>
                   <span className="block max-w-48 truncate xl:max-w-56">
                     {from?.name} → {to?.name}
                   </span>
                 </Td>
-                <Td className="money text-muted-foreground text-right font-medium">{formatMoney(t.amount)}</Td>
+                <Td className={cn('money text-muted-foreground text-right font-medium', !paid && 'opacity-60')}>
+                  {formatMoney(t.amount)}
+                </Td>
               </Tr>
             );
           }
@@ -109,6 +140,14 @@ export function TransactionTable({
           const account = accountsById.get(t.account_id);
           return (
             <Tr key={t.id} onClick={() => onSelect(t)}>
+              <Td className="pr-0">
+                <PaidToggle
+                  paid={t.paid}
+                  overdue={overdue}
+                  kind={t.type}
+                  onToggle={() => toggleTransaction.mutate({ id: t.id, paid: !t.paid })}
+                />
+              </Td>
               {dateCell}
               <Td className="w-full max-w-0">
                 <div className="flex items-center gap-2 overflow-hidden">
@@ -148,7 +187,7 @@ export function TransactionTable({
                 </div>
               </Td>
               <Td className="hidden md:table-cell">
-                <span className="flex max-w-56 items-center gap-2 xl:max-w-64">
+                <span className={cn('flex items-center gap-2', col.categoryMax)}>
                   <span
                     className="size-2 shrink-0 rounded-full"
                     style={{ backgroundColor: categories.colorOf(sub) }}
@@ -159,7 +198,7 @@ export function TransactionTable({
                   </span>
                 </span>
               </Td>
-              <Td className="text-muted-foreground hidden md:table-cell">
+              <Td className={accountCell}>
                 <span className="block max-w-48 truncate xl:max-w-56">
                   {account?.name}
                   {t.invoice_month && (
@@ -174,6 +213,7 @@ export function TransactionTable({
                 className={cn(
                   'money text-right font-medium',
                   t.type === 'income' ? 'text-success' : 'text-destructive',
+                  !paid && 'opacity-60',
                 )}
               >
                 {t.type === 'income' ? '+' : '−'}

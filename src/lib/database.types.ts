@@ -172,6 +172,7 @@ export type Database = {
           installment_total: number | null
           invoice_month: string | null
           notes: string | null
+          paid: boolean
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at: string
           user_id: string
@@ -189,6 +190,7 @@ export type Database = {
           installment_total?: number | null
           invoice_month?: string | null
           notes?: string | null
+          paid?: boolean
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
           user_id?: string
@@ -206,6 +208,7 @@ export type Database = {
           installment_total?: number | null
           invoice_month?: string | null
           notes?: string | null
+          paid?: boolean
           type?: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
           user_id?: string
@@ -236,6 +239,7 @@ export type Database = {
           from_account_id: string
           id: string
           invoice_month: string | null
+          paid: boolean
           to_account_id: string
           user_id: string
         }
@@ -247,6 +251,7 @@ export type Database = {
           from_account_id: string
           id?: string
           invoice_month?: string | null
+          paid?: boolean
           to_account_id: string
           user_id?: string
         }
@@ -258,6 +263,7 @@ export type Database = {
           from_account_id?: string
           id?: string
           invoice_month?: string | null
+          paid?: boolean
           to_account_id?: string
           user_id?: string
         }
@@ -284,6 +290,7 @@ export type Database = {
         Row: {
           account_id: string | null
           balance: number | null
+          projected_balance: number | null
           user_id: string | null
         }
         Relationships: []
@@ -295,6 +302,7 @@ export type Database = {
           due_date: string | null
           invoice_month: string | null
           paid: number | null
+          scheduled: number | null
           total: number | null
           transaction_count: number | null
           user_id: string | null

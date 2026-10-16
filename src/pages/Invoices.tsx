@@ -55,7 +55,7 @@ export function Invoices() {
     const byMonth = new Map((invoices ?? []).map((i) => [i.month, i]));
     if (!byMonth.has(openMonth)) {
       const { closing, due } = invoiceDates(openMonth, card);
-      byMonth.set(openMonth, { month: openMonth, closing, due, total: 0, paid: 0, count: 0 });
+      byMonth.set(openMonth, { month: openMonth, closing, due, total: 0, paid: 0, scheduled: 0, count: 0 });
     }
     return [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month));
   }, [invoices, card, openMonth]);
@@ -66,7 +66,7 @@ export function Invoices() {
   const month = params.get('fatura') ?? defaultMonth;
   const selected =
     list.find((i) => i.month === month) ??
-    (card && month ? { month, ...invoiceDates(month, card), total: 0, paid: 0, count: 0 } : undefined);
+    (card && month ? { month, ...invoiceDates(month, card), total: 0, paid: 0, scheduled: 0, count: 0 } : undefined);
 
   const { data: transactions } = useInvoiceTransactions(card?.id, selected?.month);
   const { data: payments } = useInvoicePayments(card?.id, selected?.month);
@@ -199,6 +199,11 @@ export function Invoices() {
             </Cell>
             <Cell label="Pago">
               <span className="money text-success">{formatMoney(selected.paid)}</span>
+              {selected.scheduled > 0 && (
+                <span className="text-muted-foreground ml-2 text-xs">
+                  + <span className="money">{formatMoney(selected.scheduled)}</span> agendado
+                </span>
+              )}
             </Cell>
             <Cell label="Restante" last>
               <span className={cn('money font-semibold', remaining > 0 && 'text-destructive')}>

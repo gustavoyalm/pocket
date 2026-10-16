@@ -12,7 +12,8 @@ import { supabase } from './supabase';
 import type { Enums, Tables, TablesInsert, TablesUpdate } from './database.types';
 
 export type AccountType = Enums<'account_type'>;
-export type Account = Tables<'accounts'> & { balance: number };
+/** balance = saldo atual (só o que foi pago); projectedBalance = inclui os pendentes */
+export type Account = Tables<'accounts'> & { balance: number; projectedBalance: number };
 
 export const accountTypes: Record<AccountType, { label: string; icon: LucideIcon }> = {
   checking: { label: 'Conta corrente', icon: Landmark },
@@ -41,16 +42,17 @@ const KEY = ['accounts'] as const;
 async function fetchAccounts(): Promise<Account[]> {
   const [accounts, balances] = await Promise.all([
     supabase.from('accounts').select('*').order('created_at'),
-    supabase.from('account_balances').select('account_id, balance'),
+    supabase.from('account_balances').select('account_id, balance, projected_balance'),
   ]);
   if (accounts.error) throw accounts.error;
   if (balances.error) throw balances.error;
 
-  const byId = new Map(balances.data.map((b) => [b.account_id, Number(b.balance ?? 0)]));
+  const byId = new Map(balances.data.map((b) => [b.account_id, b]));
   return accounts.data.map((a) => ({
     ...a,
     initial_balance: Number(a.initial_balance),
-    balance: byId.get(a.id) ?? Number(a.initial_balance),
+    balance: Number(byId.get(a.id)?.balance ?? a.initial_balance),
+    projectedBalance: Number(byId.get(a.id)?.projected_balance ?? a.initial_balance),
   }));
 }
 

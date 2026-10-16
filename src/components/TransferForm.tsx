@@ -30,6 +30,7 @@ export function TransferForm({ transfer, defaults, onDone }: Props) {
   const [date, setDate] = useState(transfer?.date ?? todayISO());
   const [description, setDescription] = useState(transfer?.description ?? defaults?.description ?? '');
   const [invoice, setInvoice] = useState(transfer?.invoice_month?.slice(0, 7) ?? defaults?.invoice ?? '');
+  const [paid, setPaid] = useState(transfer?.paid ?? false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,6 +64,7 @@ export function TransferForm({ transfer, defaults, onDone }: Props) {
         date,
         description: description.trim() || null,
         invoice_month: card ? `${invoice || suggested}-01` : null,
+        paid,
       });
       onDone();
     } catch (err) {
@@ -158,6 +160,19 @@ export function TransferForm({ transfer, defaults, onDone }: Props) {
           onChange={(e) => setDescription(e.target.value)}
         />
       </div>
+
+      <label className="flex cursor-pointer items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={paid}
+          onChange={(e) => setPaid(e.target.checked)}
+          className="accent-success size-4"
+        />
+        Efetivada
+        <span className="text-muted-foreground text-xs">
+          {paid ? '(já saiu da conta)' : '(pendente / agendada)'}
+        </span>
+      </label>
 
       <p className="text-muted-foreground text-xs">
         Transferências não contam como receita nem despesa: só movem dinheiro entre suas contas.

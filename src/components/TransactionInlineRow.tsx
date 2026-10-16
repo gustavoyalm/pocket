@@ -7,6 +7,7 @@ import { normalizeTag } from '@/lib/tags';
 import { useCreateInstallments, useSaveTransaction } from '@/lib/transactions';
 import { cn, formatMoney, parseMoney } from '@/lib/utils';
 import { CategoryCombobox, type CategoryComboboxHandle } from './CategoryCombobox';
+import { PaidToggle } from './PaidToggle';
 
 type Props = {
   /** Mês exibido ("YYYY-MM"): base para datas digitadas só com o dia */
@@ -36,6 +37,8 @@ export function TransactionInlineRow({ month, onClose }: Props) {
   const [accountId, setAccountId] = useState('');
   const [amount, setAmount] = useState('');
   const [installments, setInstallments] = useState('');
+  // null = segue o padrão da conta (cartão: pago; demais: pendente)
+  const [paidChoice, setPaidChoice] = useState<boolean | null>(null);
   const [invalid, setInvalid] = useState<Field[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +51,7 @@ export function TransactionInlineRow({ month, onClose }: Props) {
   const account = accountId || activeAccounts[0]?.id || '';
   const type = categories?.find((c) => c.id === categoryId)?.type ?? 'expense';
   const card = activeAccounts.find((a) => a.id === account && isCard(a));
+  const paid = paidChoice ?? !!card;
   const parsedDate = parseDateInput(date, month);
   const parts = card && type === 'expense' ? Math.max(1, Math.min(72, Number(installments) || 1)) : 1;
   const value = parseMoney(amount);
@@ -96,6 +100,7 @@ export function TransactionInlineRow({ month, onClose }: Props) {
           account_id: account,
           type,
           amount: value!,
+          paid,
         });
       }
       // Pronto para a próxima: mantém data e conta
@@ -104,6 +109,7 @@ export function TransactionInlineRow({ month, onClose }: Props) {
       setCategoryId('');
       setAmount('');
       setInstallments('');
+      setPaidChoice(null);
       descriptionRef.current?.focus();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível salvar.');
@@ -125,6 +131,9 @@ export function TransactionInlineRow({ month, onClose }: Props) {
   return (
     <>
       <tr onKeyDown={onKeyDown} className="bg-accent/40 border-b">
+        <td className="py-1.5 pr-0 pl-3">
+          <PaidToggle paid={paid} kind={type} onToggle={() => setPaidChoice(!paid)} />
+        </td>
         <td className="px-2 py-1.5">
           <input
             ref={dateRef}
@@ -218,7 +227,7 @@ export function TransactionInlineRow({ month, onClose }: Props) {
         </td>
       </tr>
       <tr className="border-b">
-        <td colSpan={5} className="text-muted-foreground px-3 py-1 text-[11px]">
+        <td colSpan={6} className="text-muted-foreground px-3 py-1 text-[11px]">
           {error ? (
             <span className="text-destructive">{error}</span>
           ) : save.isPending || createInstallments.isPending ? (

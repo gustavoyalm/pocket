@@ -45,6 +45,8 @@ export function TransactionForm({ transaction, onDone }: Props) {
     return saved && account && saved !== invoiceFor(transaction!.date, account) ? saved : '';
   });
   const [installments, setInstallments] = useState('1');
+  // null = segue o padrão da conta (cartão: pago; demais: pendente)
+  const [paidChoice, setPaidChoice] = useState<boolean | null>(transaction ? transaction.paid : null);
   const { data: allTags } = useTags();
   const tagSuggestions = allTags?.map((t) => t.name);
   const [confirmDelete, setConfirmDelete] = useState<false | 'one' | 'all'>(false);
@@ -60,6 +62,7 @@ export function TransactionForm({ transaction, onDone }: Props) {
   const account = usableAccounts.find((a) => a.id === selectedAccount);
   const card = isCard(account) ? account : undefined;
   const autoInvoice = card && date ? invoiceFor(date, card) : null;
+  const paid = paidChoice ?? !!card;
   const invoiceOptions = autoInvoice ? [-2, -1, 0, 1, 2, 3].map((d) => shiftMonth(autoInvoice, d)) : [];
 
   const isInstallment = !!transaction?.installment_group;
@@ -130,6 +133,7 @@ export function TransactionForm({ transaction, onDone }: Props) {
           tags,
           // null = o banco calcula a fatura pela data (ou ignora, se não for cartão)
           invoice_month: card && invoice ? `${invoice}-01` : null,
+          paid,
         });
       }
       onDone();
@@ -302,6 +306,21 @@ export function TransactionForm({ transaction, onDone }: Props) {
           </div>
         )}
       </div>
+
+      {parts === 1 && (
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={paid}
+            onChange={(e) => setPaidChoice(e.target.checked)}
+            className="accent-success size-4"
+          />
+          {type === 'income' ? 'Recebido' : 'Pago'}
+          <span className="text-muted-foreground text-xs">
+            {paid ? '(entra no saldo atual)' : '(pendente: só entra no saldo previsto)'}
+          </span>
+        </label>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="tx-tags">

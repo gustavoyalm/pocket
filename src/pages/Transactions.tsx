@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { ArrowLeftRight, ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
 import { useAccounts } from '@/lib/accounts';
 import { groupCategories, useCategories } from '@/lib/categories';
-import { currentMonth, formatMonth, isValidMonth, shiftMonth } from '@/lib/dates';
+import { currentMonth, formatMonth, isValidMonth, shiftMonth, todayISO } from '@/lib/dates';
 import { useTagLookup, useTags } from '@/lib/tags';
 import { summarize, useTransactions, type TransactionType } from '@/lib/transactions';
 import { useTransfers } from '@/lib/transfers';
@@ -17,6 +17,7 @@ import { Select } from '@/components/ui/select';
 import { PageHeader } from '@/components/PageHeader';
 
 type TypeFilter = 'all' | TransactionType;
+type StatusFilter = 'all' | 'paid' | 'pending' | 'overdue';
 
 const typeFilters: { value: TypeFilter; label: string }[] = [
   { value: 'all', label: 'Todas' },
@@ -55,6 +56,13 @@ export function Transactions() {
   const { data: tags } = useTags();
   const tagLookup = useTagLookup();
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const today = todayISO();
+  const matchesStatus = (item: { paid: boolean; date: string }) =>
+    statusFilter === 'all' ||
+    (statusFilter === 'paid' && item.paid) ||
+    (statusFilter === 'pending' && !item.paid) ||
+    (statusFilter === 'overdue' && !item.paid && item.date < today);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -73,13 +81,14 @@ export function Transactions() {
           t.category_id === categoryFilter ||
           byId.get(t.category_id)?.parent_id === categoryFilter) &&
         (!tagFilter || t.tagIds.includes(tagFilter)) &&
+        matchesStatus(t) &&
         (!q ||
           t.description?.toLowerCase().includes(q) ||
           t.tagIds.some((id) => tagLookup.get(id)?.name.toLowerCase().includes(q)) ||
           t.notes?.toLowerCase().includes(q) ||
           categoryText(t.category_id).includes(q)),
     );
-  }, [transactions, categories, tagLookup, typeFilter, accountFilter, categoryFilter, tagFilter, search]);
+  }, [transactions, categories, tagLookup, typeFilter, accountFilter, categoryFilter, tagFilter, statusFilter, today, search]);
 
   // Transferências só aparecem sem filtros de tipo/categoria/tag (não têm essas informações)
   const filteredTransfers = useMemo(() => {
@@ -88,13 +97,15 @@ export function Transactions() {
     return (transfers ?? []).filter(
       (t) =>
         (!accountFilter || t.from_account_id === accountFilter || t.to_account_id === accountFilter) &&
+        matchesStatus(t) &&
         (!q || t.description?.toLowerCase().includes(q)),
     );
-  }, [transfers, typeFilter, categoryFilter, tagFilter, accountFilter, search]);
+  }, [transfers, typeFilter, categoryFilter, tagFilter, accountFilter, statusFilter, today, search]);
 
   const totals = summarize(filtered);
   const rowCount = filtered.length + filteredTransfers.length;
-  const hasFilters = typeFilter !== 'all' || accountFilter || categoryFilter || tagFilter || search;
+  const hasFilters =
+    typeFilter !== 'all' || statusFilter !== 'all' || accountFilter || categoryFilter || tagFilter || search;
   const categoryGroups = groupCategories(categories).filter(
     (g) => typeFilter === 'all' || g.type === typeFilter,
   );
@@ -207,6 +218,19 @@ export function Transactions() {
               </Select>
             </div>
           )}
+          <div className="sm:w-36">
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              aria-label="Situação"
+              className="h-8 text-xs"
+            >
+              <option value="all">Todas as situações</option>
+              <option value="paid">Pagas</option>
+              <option value="pending">Pendentes</option>
+              <option value="overdue">Atrasadas</option>
+            </Select>
+          </div>
           <div className="relative sm:w-56">
             <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
             <Input
@@ -271,6 +295,12 @@ function Totals({ totals, className }: { totals: ReturnType<typeof summarize>; c
         value={totals.net}
         className={totals.net < 0 ? 'text-destructive' : totals.net > 0 ? 'text-success' : ''}
       />
+      {totals.pendingExpense > 0 && (
+        <Stat label="A pagar" value={totals.pendingExpense} className="text-destructive opacity-70" />
+      )}
+      {totals.pendingIncome > 0 && (
+        <Stat label="A receber" value={totals.pendingIncome} className="text-success opacity-70" />
+      )}
     </dl>
   );
 }

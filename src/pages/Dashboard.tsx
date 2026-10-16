@@ -18,15 +18,32 @@ export function Dashboard() {
 
   const active = accounts?.filter((a) => !a.archived) ?? [];
   const total = active.reduce((sum, a) => sum + a.balance, 0);
-  const { income, expense, net } = summarize(transactions);
+  const projectedTotal = active.reduce((sum, a) => sum + a.projectedBalance, 0);
+  const { income, expense, net, pendingIncome, pendingExpense } = summarize(transactions);
   const recent = transactions?.slice(0, 12) ?? [];
 
   const tone = (v: number) => (v < 0 ? 'text-destructive' : v > 0 ? 'text-success' : '');
+  // `note`: linha pequena embaixo do valor (previsto / pendentes)
   const stats = [
-    { label: 'Saldo total', value: total, className: total < 0 ? 'text-destructive' : '' },
-    { label: 'Receitas do mês', value: income, className: 'text-success' },
-    { label: 'Despesas do mês', value: expense, className: 'text-destructive' },
-    { label: 'Resultado do mês', value: net, className: tone(net) },
+    {
+      label: 'Saldo atual',
+      value: total,
+      className: total < 0 ? 'text-destructive' : '',
+      note: projectedTotal !== total ? `previsto ${formatMoney(projectedTotal)}` : null,
+    },
+    {
+      label: 'Receitas do mês',
+      value: income,
+      className: 'text-success',
+      note: pendingIncome > 0 ? `${formatMoney(pendingIncome)} a receber` : null,
+    },
+    {
+      label: 'Despesas do mês',
+      value: expense,
+      className: 'text-destructive',
+      note: pendingExpense > 0 ? `${formatMoney(pendingExpense)} a pagar` : null,
+    },
+    { label: 'Resultado do mês', value: net, className: tone(net), note: null },
   ];
 
   return (
@@ -46,7 +63,7 @@ export function Dashboard() {
       </PageHeader>
 
       <div className="bg-card grid grid-cols-2 rounded-lg border lg:grid-cols-4">
-        {stats.map(({ label, value, className }, i) => (
+        {stats.map(({ label, value, className, note }, i) => (
           <div
             key={label}
             className={cn(
@@ -58,6 +75,7 @@ export function Dashboard() {
           >
             <p className="text-muted-foreground text-xs">{label}</p>
             <p className={cn('money mt-0.5 text-xl font-semibold', className)}>{formatMoney(value)}</p>
+            <p className="money text-muted-foreground h-4 text-[11px]">{note}</p>
           </div>
         ))}
       </div>
@@ -66,7 +84,7 @@ export function Dashboard() {
         <section className="min-w-0 space-y-2">
           <SectionTitle title="Últimas transações" link={recent.length > 0 ? '/transacoes' : undefined} />
           {recent.length > 0 ? (
-            <TransactionTable transactions={recent} onSelect={openTransaction} />
+            <TransactionTable transactions={recent} onSelect={openTransaction} compact />
           ) : (
             <Empty>
               {accounts && active.length === 0 ? (

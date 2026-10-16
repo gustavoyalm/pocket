@@ -48,6 +48,7 @@ export type Invoice = {
   due: string;
   total: number;
   paid: number;
+  scheduled: number; // pagamentos lançados mas ainda pendentes
   count: number;
 };
 
@@ -88,6 +89,7 @@ export function useInvoices(accountId: string | undefined) {
         due: i.due_date!,
         total: Number(i.total ?? 0),
         paid: Number(i.paid ?? 0),
+        scheduled: Number(i.scheduled ?? 0),
         count: i.transaction_count ?? 0,
       }));
     },

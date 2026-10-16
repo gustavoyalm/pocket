@@ -56,14 +56,22 @@ export function useInvoiceTransactions(accountId: string | undefined, invoice: s
   });
 }
 
+/** Totais do período (pagos + pendentes) e quanto ainda está pendente de cada lado. */
 export function summarize(transactions: Transaction[] | undefined) {
   let income = 0;
   let expense = 0;
+  let pendingIncome = 0;
+  let pendingExpense = 0;
   for (const t of transactions ?? []) {
-    if (t.type === 'income') income += t.amount;
-    else expense += t.amount;
+    if (t.type === 'income') {
+      income += t.amount;
+      if (!t.paid) pendingIncome += t.amount;
+    } else {
+      expense += t.amount;
+      if (!t.paid) pendingExpense += t.amount;
+    }
   }
-  return { income, expense, net: income - expense };
+  return { income, expense, net: income - expense, pendingIncome, pendingExpense };
 }
 
 // Transações mudam saldos, faturas e o uso das categorias e tags
@@ -136,6 +144,28 @@ export function useCreateInstallments() {
       if (error) throw error;
     },
     onSuccess: invalidate,
+  });
+}
+
+/** Marca como pago/pendente. A lista muda na hora; se o banco recusar, volta ao estado anterior. */
+export function useToggleTransactionPaid() {
+  const qc = useQueryClient();
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async ({ id, paid }: { id: string; paid: boolean }) => {
+      const { error } = await supabase.from('transactions').update({ paid }).eq('id', id);
+      if (error) throw error;
+    },
+    onMutate: async ({ id, paid }) => {
+      await qc.cancelQueries({ queryKey: ['transactions'] });
+      const previous = qc.getQueriesData<Transaction[]>({ queryKey: ['transactions'] });
+      qc.setQueriesData<Transaction[]>({ queryKey: ['transactions'] }, (rows) =>
+        Array.isArray(rows) ? rows.map((t) => (t.id === id ? { ...t, paid } : t)) : rows,
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, ctx) => ctx?.previous.forEach(([key, data]) => qc.setQueryData(key, data)),
+    onSettled: invalidate,
   });
 }
 
