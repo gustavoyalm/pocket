@@ -8,10 +8,10 @@ import {
   useCreateInstallments,
   useDeleteTransaction,
   useSaveTransaction,
-  useTags,
   type Transaction,
   type TransactionType,
 } from '@/lib/transactions';
+import { useTagLookup, useTags } from '@/lib/tags';
 import { cn, formatMoney, parseMoney, toMoneyInput } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Input, Label } from './ui/input';
@@ -34,7 +34,10 @@ export function TransactionForm({ transaction, onDone }: Props) {
   const [accountId, setAccountId] = useState(transaction?.account_id ?? '');
   const [categoryId, setCategoryId] = useState(transaction?.category_id ?? '');
   const [notes, setNotes] = useState(transaction?.notes ?? '');
-  const [tags, setTags] = useState<string[]>(transaction?.tags ?? []);
+  const tagLookup = useTagLookup();
+  const [tags, setTags] = useState<string[]>(
+    () => transaction?.tagIds.map((id) => tagLookup.get(id)?.name).filter((n): n is string => !!n) ?? [],
+  );
   // Fatura escolhida manualmente ("YYYY-MM"); vazio = automática pela data
   const [invoice, setInvoice] = useState(() => {
     const saved = transaction?.invoice_month?.slice(0, 7);
@@ -42,7 +45,8 @@ export function TransactionForm({ transaction, onDone }: Props) {
     return saved && account && saved !== invoiceFor(transaction!.date, account) ? saved : '';
   });
   const [installments, setInstallments] = useState('1');
-  const { data: tagSuggestions } = useTags();
+  const { data: allTags } = useTags();
+  const tagSuggestions = allTags?.map((t) => t.name);
   const [confirmDelete, setConfirmDelete] = useState<false | 'one' | 'all'>(false);
   const [error, setError] = useState<string | null>(null);
 

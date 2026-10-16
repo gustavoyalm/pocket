@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { X } from 'lucide-react';
-import { normalizeTag } from '@/lib/transactions';
+import { normalizeTag } from '@/lib/tags';
 import { cn } from '@/lib/utils';
 
 type Props = {
@@ -19,9 +19,10 @@ export function TagInput({ id, value, onChange, suggestions = [], placeholder }:
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
 
-  const query = normalizeTag(text);
+  const query = normalizeTag(text).toLowerCase();
+  const chosen = new Set(value.map((v) => v.toLowerCase()));
   const matches = query
-    ? suggestions.filter((s) => !value.includes(s) && s.includes(query)).slice(0, 6)
+    ? suggestions.filter((s) => !chosen.has(s.toLowerCase()) && s.toLowerCase().includes(query)).slice(0, 6)
     : [];
   const showList = open && matches.length > 0;
 
@@ -29,8 +30,10 @@ export function TagInput({ id, value, onChange, suggestions = [], placeholder }:
     // Aceita várias de uma vez ("a, b, c" colado)
     const next = [...value];
     for (const part of raw.split(',')) {
-      const tag = normalizeTag(part);
-      if (tag && tag.length <= 40 && !next.includes(tag)) next.push(tag);
+      const typed = normalizeTag(part);
+      // Se já existe uma tag com esse nome (ignorando maiúsculas), usa a grafia dela
+      const tag = suggestions.find((s) => s.toLowerCase() === typed.toLowerCase()) ?? typed;
+      if (tag && tag.length <= 40 && !next.some((t) => t.toLowerCase() === tag.toLowerCase())) next.push(tag);
     }
     onChange(next.slice(0, 20));
     setText('');

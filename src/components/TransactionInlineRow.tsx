@@ -3,7 +3,8 @@ import { useAccounts } from '@/lib/accounts';
 import { formatInvoice, invoiceFor, isCard } from '@/lib/cards';
 import { useCategories } from '@/lib/categories';
 import { currentMonth, formatDateInput, parseDateInput, todayISO } from '@/lib/dates';
-import { normalizeTag, useCreateInstallments, useSaveTransaction } from '@/lib/transactions';
+import { normalizeTag } from '@/lib/tags';
+import { useCreateInstallments, useSaveTransaction } from '@/lib/transactions';
 import { cn, formatMoney, parseMoney } from '@/lib/utils';
 import { CategoryCombobox, type CategoryComboboxHandle } from './CategoryCombobox';
 

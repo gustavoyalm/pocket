@@ -4,9 +4,19 @@ import { monthBounds } from './dates';
 import type { Enums, Tables, TablesInsert, TablesUpdate } from './database.types';
 
 export type TransactionType = Enums<'transaction_type'>;
-export type Transaction = Tables<'transactions'>;
+/** Transação com os ids das suas tags (nome e cor vêm de useTags/useTagLookup). */
+export type Transaction = Tables<'transactions'> & { tagIds: string[] };
 
-const parse = (rows: Transaction[]) => rows.map((t) => ({ ...t, amount: Number(t.amount) }));
+// Traz as tags junto, pela tabela de ligação
+const SELECT = '*, transaction_tags(tag_id)';
+
+type Row = Tables<'transactions'> & { transaction_tags: { tag_id: string }[] };
+const parse = (rows: Row[]): Transaction[] =>
+  rows.map(({ transaction_tags, ...t }) => ({
+    ...t,
+    amount: Number(t.amount),
+    tagIds: transaction_tags.map((tt) => tt.tag_id),
+  }));
 
 /** Transações com data dentro do mês ("YYYY-MM"), inclusive as de cartão (pela data da compra). */
 export function useTransactions(month: string) {
@@ -16,7 +26,7 @@ export function useTransactions(month: string) {
       const [start, end] = monthBounds(month);
       const { data, error } = await supabase
         .from('transactions')
-        .select('*')
+        .select(SELECT)
         .gte('date', start)
         .lt('date', end)
         .order('date', { ascending: false })
@@ -35,7 +45,7 @@ export function useInvoiceTransactions(accountId: string | undefined, invoice: s
     queryFn: async (): Promise<Transaction[]> => {
       const { data, error } = await supabase
         .from('transactions')
-        .select('*')
+        .select(SELECT)
         .eq('account_id', accountId!)
         .eq('invoice_month', `${invoice}-01`)
         .order('date', { ascending: false })
@@ -44,26 +54,6 @@ export function useInvoiceTransactions(accountId: string | undefined, invoice: s
       return parse(data);
     },
   });
-}
-
-/** Tags já usadas, das mais usadas para as menos (para sugestões e filtro). */
-export function useTags() {
-  return useQuery({
-    queryKey: ['transactions', 'tags'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('transaction_tags')
-        .select('*')
-        .order('uses', { ascending: false });
-      if (error) throw error;
-      return data.map((t) => t.tag!);
-    },
-  });
-}
-
-/** Mesma padronização do banco: sem espaços extras, minúsculas. */
-export function normalizeTag(tag: string) {
-  return tag.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
 export function summarize(transactions: Transaction[] | undefined) {
@@ -76,29 +66,40 @@ export function summarize(transactions: Transaction[] | undefined) {
   return { income, expense, net: income - expense };
 }
 
-// Transações mudam saldos, faturas e o uso das categorias
+// Transações mudam saldos, faturas e o uso das categorias e tags
 function useInvalidate() {
   const qc = useQueryClient();
   return () =>
     Promise.all([
       qc.invalidateQueries({ queryKey: ['transactions'] }),
+      qc.invalidateQueries({ queryKey: ['tags'] }),
       qc.invalidateQueries({ queryKey: ['accounts'] }),
       qc.invalidateQueries({ queryKey: ['invoices'] }),
       qc.invalidateQueries({ queryKey: ['categories', 'usage'] }),
     ]);
 }
 
+type SaveTransaction = TablesInsert<'transactions'> &
+  TablesUpdate<'transactions'> & {
+    /** Nomes das tags; as que não existem são criadas. Omitir = não mexe nas tags. */
+    tags?: string[];
+  };
+
 export function useSaveTransaction() {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: async ({
-      id,
-      ...values
-    }: TablesInsert<'transactions'> & TablesUpdate<'transactions'>) => {
-      const { error } = id
-        ? await supabase.from('transactions').update(values).eq('id', id)
-        : await supabase.from('transactions').insert(values);
+    mutationFn: async ({ id, tags, ...values }: SaveTransaction) => {
+      const { data, error } = id
+        ? await supabase.from('transactions').update(values).eq('id', id).select('id').single()
+        : await supabase.from('transactions').insert(values).select('id').single();
       if (error) throw error;
+      if (tags) {
+        const { error: tagError } = await supabase.rpc('set_transaction_tags', {
+          p_transaction_ids: [data.id],
+          p_names: tags,
+        });
+        if (tagError) throw tagError;
+      }
     },
     onSuccess: invalidate,
   });

@@ -4,6 +4,7 @@ import { useAccounts } from '@/lib/accounts';
 import { formatInvoice } from '@/lib/cards';
 import { useCategoryLookup } from '@/lib/categories';
 import { formatShortDate } from '@/lib/dates';
+import { DEFAULT_TAG_COLOR, useTagLookup } from '@/lib/tags';
 import type { Transaction } from '@/lib/transactions';
 import type { Transfer } from '@/lib/transfers';
 import { cn, formatMoney } from '@/lib/utils';
@@ -15,8 +16,8 @@ type Props = {
   /** Transferências exibidas junto, ordenadas pela data */
   transfers?: Transfer[];
   onSelectTransfer?: (t: Transfer) => void;
-  /** Clique numa tag (ex.: para filtrar). Sem isso, as tags só são exibidas. */
-  onTagClick?: (tag: string) => void;
+  /** Clique numa tag (recebe o id; ex.: para filtrar). Sem isso, as tags só são exibidas. */
+  onTagClick?: (tagId: string) => void;
   /** Linha extra no topo (ex.: digitação rápida de uma nova transação) */
   newRow?: ReactNode;
 };
@@ -35,6 +36,7 @@ export function TransactionTable({
 }: Props) {
   const { data: accounts } = useAccounts();
   const categories = useCategoryLookup();
+  const tags = useTagLookup();
   const accountsById = useMemo(() => new Map(accounts?.map((a) => [a.id, a])), [accounts]);
 
   const rows = useMemo<Row[]>(
@@ -119,24 +121,30 @@ export function TransactionTable({
                       {t.installment_number}/{t.installment_total}
                     </span>
                   )}
-                  {t.tags.map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      title={onTagClick ? `Filtrar por "${tag}"` : undefined}
-                      onClick={(e) => {
-                        if (!onTagClick) return;
-                        e.stopPropagation();
-                        onTagClick(tag);
-                      }}
-                      className={cn(
-                        'bg-secondary text-muted-foreground shrink-0 rounded px-1.5 text-[11px] leading-5',
-                        onTagClick ? 'hover:text-foreground cursor-pointer' : 'cursor-default',
-                      )}
-                    >
-                      {tag}
-                    </button>
-                  ))}
+                  {t.tagIds.map((tagId) => {
+                    const tag = tags.get(tagId);
+                    if (!tag) return null;
+                    const color = tag.color ?? DEFAULT_TAG_COLOR;
+                    return (
+                      <button
+                        key={tagId}
+                        type="button"
+                        title={onTagClick ? `Filtrar por "${tag.name}"` : undefined}
+                        onClick={(e) => {
+                          if (!onTagClick) return;
+                          e.stopPropagation();
+                          onTagClick(tagId);
+                        }}
+                        style={{ backgroundColor: `${color}26`, color }}
+                        className={cn(
+                          'shrink-0 rounded px-1.5 text-[11px] leading-5 font-medium',
+                          onTagClick ? 'cursor-pointer hover:brightness-125' : 'cursor-default',
+                        )}
+                      >
+                        {tag.name}
+                      </button>
+                    );
+                  })}
                 </div>
               </Td>
               <Td className="hidden md:table-cell">

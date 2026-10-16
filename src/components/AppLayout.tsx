@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeftRight, CreditCard, LayoutDashboard, LogOut, Tags, Wallet } from 'lucide-react';
+import { ArrowLeftRight, CreditCard, LayoutDashboard, LogOut, Tag, Tags, Wallet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ const nav = [
   { to: '/faturas', label: 'Faturas', icon: CreditCard, ready: true },
   { to: '/contas', label: 'Contas', icon: Wallet, ready: true },
   { to: '/categorias', label: 'Categorias', icon: Tags, ready: true },
+  { to: '/tags', label: 'Tags', icon: Tag, ready: true },
 ];
 
 const itemClass =

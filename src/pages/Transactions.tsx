@@ -4,7 +4,8 @@ import { ArrowLeftRight, ChevronLeft, ChevronRight, Plus, Search } from 'lucide-
 import { useAccounts } from '@/lib/accounts';
 import { groupCategories, useCategories } from '@/lib/categories';
 import { currentMonth, formatMonth, isValidMonth, shiftMonth } from '@/lib/dates';
-import { summarize, useTags, useTransactions, type TransactionType } from '@/lib/transactions';
+import { useTagLookup, useTags } from '@/lib/tags';
+import { summarize, useTransactions, type TransactionType } from '@/lib/transactions';
 import { useTransfers } from '@/lib/transfers';
 import { cn, formatMoney } from '@/lib/utils';
 import { useTransactionDialog } from '@/components/TransactionDialog';
@@ -52,6 +53,7 @@ export function Transactions() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const { data: tags } = useTags();
+  const tagLookup = useTagLookup();
   const [search, setSearch] = useState('');
 
   const filtered = useMemo(() => {
@@ -70,14 +72,14 @@ export function Transactions() {
         (!categoryFilter ||
           t.category_id === categoryFilter ||
           byId.get(t.category_id)?.parent_id === categoryFilter) &&
-        (!tagFilter || t.tags.includes(tagFilter)) &&
+        (!tagFilter || t.tagIds.includes(tagFilter)) &&
         (!q ||
           t.description?.toLowerCase().includes(q) ||
-          t.tags.some((tag) => tag.includes(q)) ||
+          t.tagIds.some((id) => tagLookup.get(id)?.name.toLowerCase().includes(q)) ||
           t.notes?.toLowerCase().includes(q) ||
           categoryText(t.category_id).includes(q)),
     );
-  }, [transactions, categories, typeFilter, accountFilter, categoryFilter, tagFilter, search]);
+  }, [transactions, categories, tagLookup, typeFilter, accountFilter, categoryFilter, tagFilter, search]);
 
   // Transferências só aparecem sem filtros de tipo/categoria/tag (não têm essas informações)
   const filteredTransfers = useMemo(() => {
@@ -197,10 +199,9 @@ export function Transactions() {
                 className="h-8 text-xs"
               >
                 <option value="">Todas as tags</option>
-                {/* mantém a tag clicada na lista mesmo se ela não estiver nas sugestões */}
-                {[...new Set([...(tagFilter ? [tagFilter] : []), ...(tags ?? [])])].map((tag) => (
-                  <option key={tag} value={tag}>
-                    {tag}
+                {tags?.map((tag) => (
+                  <option key={tag.id} value={tag.id}>
+                    {tag.name}
                   </option>
                 ))}
               </Select>

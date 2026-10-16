@@ -101,6 +101,63 @@ export type Database = {
           },
         ]
       }
+      tags: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          user_id?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      transaction_tags: {
+        Row: {
+          tag_id: string
+          transaction_id: string
+          user_id: string
+        }
+        Insert: {
+          tag_id: string
+          transaction_id: string
+          user_id?: string
+        }
+        Update: {
+          tag_id?: string
+          transaction_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_tags_tag_id_user_id_fkey"
+            columns: ["tag_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "transaction_tags_transaction_id_user_id_fkey"
+            columns: ["transaction_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           account_id: string
@@ -115,7 +172,6 @@ export type Database = {
           installment_total: number | null
           invoice_month: string | null
           notes: string | null
-          tags: string[]
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at: string
           user_id: string
@@ -133,7 +189,6 @@ export type Database = {
           installment_total?: number | null
           invoice_month?: string | null
           notes?: string | null
-          tags?: string[]
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
           user_id?: string
@@ -151,7 +206,6 @@ export type Database = {
           installment_total?: number | null
           invoice_month?: string | null
           notes?: string | null
-          tags?: string[]
           type?: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
           user_id?: string
@@ -254,9 +308,9 @@ export type Database = {
         }
         Relationships: []
       }
-      transaction_tags: {
+      tag_usage: {
         Row: {
-          tag: string | null
+          tag_id: string | null
           uses: number | null
         }
         Relationships: []
@@ -276,6 +330,10 @@ export type Database = {
           p_tags?: string[]
         }
         Returns: string
+      }
+      set_transaction_tags: {
+        Args: { p_names: string[]; p_transaction_ids: string[] }
+        Returns: undefined
       }
     }
     Enums: {

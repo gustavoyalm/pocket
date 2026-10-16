@@ -9,6 +9,7 @@ import { Dashboard } from '@/pages/Dashboard';
 import { Invoices } from '@/pages/Invoices';
 import { Login } from '@/pages/Login';
 import { NotConfigured } from '@/pages/NotConfigured';
+import { Tags } from '@/pages/Tags';
 import { Transactions } from '@/pages/Transactions';
 
 const queryClient = new QueryClient({
@@ -37,6 +38,7 @@ export default function App() {
               <Route path="faturas" element={<Invoices />} />
               <Route path="contas" element={<Accounts />} />
               <Route path="categorias" element={<Categories />} />
+              <Route path="tags" element={<Tags />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
