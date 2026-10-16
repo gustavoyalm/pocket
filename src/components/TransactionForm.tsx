@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAccounts } from '@/lib/accounts';
-import { useCategories } from '@/lib/categories';
+import { groupCategories, useCategories } from '@/lib/categories';
 import { todayISO } from '@/lib/dates';
 import {
   useDeleteTransaction,
@@ -39,8 +39,13 @@ export function TransactionForm({ transaction, onDone }: Props) {
 
   // Conta padrão: a primeira ativa (quando as contas terminam de carregar)
   const selectedAccount = accountId || usableAccounts[0]?.id || '';
-  const typeCategories =
-    categories?.filter((c) => c.type === type && (!c.archived || c.id === categoryId)) ?? [];
+  // Só subcategorias podem ser escolhidas; arquivadas somem (exceto a já usada na transação)
+  const categoryGroups = groupCategories(categories, type)
+    .map((g) => ({
+      ...g,
+      children: g.children.filter((c) => (!c.archived && !g.archived) || c.id === categoryId),
+    }))
+    .filter((g) => g.children.length > 0);
 
   if (accounts && usableAccounts.length === 0) {
     return (
@@ -70,6 +75,7 @@ export function TransactionForm({ transaction, onDone }: Props) {
     const value = parseMoney(amount);
     if (value === null || value <= 0) return setError('Informe um valor maior que zero.');
     if (!selectedAccount) return setError('Escolha uma conta.');
+    if (!categoryId) return setError('Escolha uma subcategoria.');
     setError(null);
     try {
       await save.mutateAsync({
@@ -79,7 +85,7 @@ export function TransactionForm({ transaction, onDone }: Props) {
         description: description.trim() || null,
         date,
         account_id: selectedAccount,
-        category_id: categoryId || null,
+        category_id: categoryId,
         notes: notes.trim() || null,
       });
       onDone();
@@ -148,12 +154,24 @@ export function TransactionForm({ transaction, onDone }: Props) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="tx-category">Categoria</Label>
-          <Select id="tx-category" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-            <option value="">Sem categoria</option>
-            {typeCategories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+          <Select
+            id="tx-category"
+            required
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className={cn(!categoryId && 'text-muted-foreground')}
+          >
+            <option value="" disabled>
+              Selecione…
+            </option>
+            {categoryGroups.map((g) => (
+              <optgroup key={g.id} label={g.name}>
+                {g.children.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </Select>
         </div>

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
 import { useAccounts } from '@/lib/accounts';
-import { useCategories } from '@/lib/categories';
+import { groupCategories, useCategories } from '@/lib/categories';
 import { currentMonth, formatMonth, isValidMonth, shiftMonth } from '@/lib/dates';
 import { summarize, useTransactions, type TransactionType } from '@/lib/transactions';
 import { cn, formatMoney } from '@/lib/utils';
@@ -34,34 +34,51 @@ export function Transactions() {
 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [accountFilter, setAccountFilter] = useState('');
+  // Filtro de categoria: id de uma categoria-pai (pega todas as subs) ou de uma subcategoria
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [search, setSearch] = useState('');
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const categoryName = new Map(categories?.map((c) => [c.id, c.name.toLowerCase()]));
+    const byId = new Map(categories?.map((c) => [c.id, c]));
+    // Texto pesquisável da categoria: "pai sub"
+    const categoryText = (id: string) => {
+      const sub = byId.get(id);
+      const parent = sub?.parent_id ? byId.get(sub.parent_id) : undefined;
+      return `${parent?.name ?? ''} ${sub?.name ?? ''}`.toLowerCase();
+    };
     return (transactions ?? []).filter(
       (t) =>
         (typeFilter === 'all' || t.type === typeFilter) &&
         (!accountFilter || t.account_id === accountFilter) &&
+        (!categoryFilter ||
+          t.category_id === categoryFilter ||
+          byId.get(t.category_id)?.parent_id === categoryFilter) &&
         (!q ||
           t.description?.toLowerCase().includes(q) ||
           t.notes?.toLowerCase().includes(q) ||
-          (t.category_id && categoryName.get(t.category_id)?.includes(q))),
+          categoryText(t.category_id).includes(q)),
     );
-  }, [transactions, categories, typeFilter, accountFilter, search]);
+  }, [transactions, categories, typeFilter, accountFilter, categoryFilter, search]);
 
   const totals = summarize(filtered);
-  const hasFilters = typeFilter !== 'all' || accountFilter || search;
+  const hasFilters = typeFilter !== 'all' || accountFilter || categoryFilter || search;
+  const categoryGroups = groupCategories(categories).filter(
+    (g) => typeFilter === 'all' || g.type === typeFilter,
+  );
 
   return (
     <div className="space-y-3">
       <PageHeader
         title="Transações"
         actions={
-          <Button size="sm" onClick={() => openTransaction()}>
-            <Plus />
-            Nova transação
-          </Button>
+          <>
+            <Totals totals={totals} className="mr-3 hidden lg:flex" />
+            <Button size="sm" onClick={() => openTransaction()}>
+              <Plus />
+              Nova transação
+            </Button>
+          </>
         }
       >
         <div className="flex items-center">
@@ -84,8 +101,8 @@ export function Transactions() {
         </div>
       </PageHeader>
 
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-        <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+      <div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="bg-muted inline-flex shrink-0 rounded-md p-0.5">
             {typeFilters.map(({ value, label }) => (
               <button
@@ -117,7 +134,27 @@ export function Transactions() {
               ))}
             </Select>
           </div>
-          <div className="relative sm:w-64">
+          <div className="sm:w-52">
+            <Select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              aria-label="Categoria"
+              className="h-8 text-xs"
+            >
+              <option value="">Todas as categorias</option>
+              {categoryGroups.map((g) => (
+                <optgroup key={g.id} label={`${g.name}${typeFilter === 'all' ? (g.type === 'income' ? ' (receita)' : '') : ''}`}>
+                  <option value={g.id}>{g.name} — todas</option>
+                  {g.children.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </Select>
+          </div>
+          <div className="relative sm:w-56">
             <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
             <Input
               placeholder="Buscar"
@@ -128,16 +165,9 @@ export function Transactions() {
             />
           </div>
         </div>
-        <dl className="flex gap-5 text-xs">
-          <Stat label="Receitas" value={totals.income} className="text-success" />
-          <Stat label="Despesas" value={totals.expense} className="text-destructive" />
-          <Stat
-            label="Resultado"
-            value={totals.net}
-            className={totals.net < 0 ? 'text-destructive' : totals.net > 0 ? 'text-success' : ''}
-          />
-        </dl>
       </div>
+
+      <Totals totals={totals} className="flex lg:hidden" />
 
       {error && <p className="text-destructive text-sm">Erro ao carregar transações: {error.message}</p>}
 
@@ -166,6 +196,20 @@ export function Transactions() {
         </>
       )}
     </div>
+  );
+}
+
+function Totals({ totals, className }: { totals: ReturnType<typeof summarize>; className?: string }) {
+  return (
+    <dl className={cn('flex-wrap gap-x-5 gap-y-1 text-xs', className)}>
+      <Stat label="Receitas" value={totals.income} className="text-success" />
+      <Stat label="Despesas" value={totals.expense} className="text-destructive" />
+      <Stat
+        label="Resultado"
+        value={totals.net}
+        className={totals.net < 0 ? 'text-destructive' : totals.net > 0 ? 'text-success' : ''}
+      />
+    </dl>
   );
 }
 

@@ -34,13 +34,14 @@ export function summarize(transactions: Transaction[] | undefined) {
   return { income, expense, net: income - expense };
 }
 
-// Transações mudam o saldo das contas, então invalida as duas coisas
+// Transações mudam o saldo das contas e o uso das categorias
 function useInvalidate() {
   const qc = useQueryClient();
   return () =>
     Promise.all([
       qc.invalidateQueries({ queryKey: ['transactions'] }),
       qc.invalidateQueries({ queryKey: ['accounts'] }),
+      qc.invalidateQueries({ queryKey: ['categories', 'usage'] }),
     ]);
 }
 

@@ -13,7 +13,7 @@ const nav = [
   { to: '/', label: 'Visão geral', icon: LayoutDashboard, ready: true },
   { to: '/transacoes', label: 'Transações', icon: ArrowLeftRight, ready: true },
   { to: '/contas', label: 'Contas', icon: Wallet, ready: true },
-  { to: '/categorias', label: 'Categorias', icon: Tags, ready: false },
+  { to: '/categorias', label: 'Categorias', icon: Tags, ready: true },
 ];
 
 const itemClass =

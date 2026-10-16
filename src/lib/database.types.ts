@@ -56,6 +56,7 @@ export type Database = {
           icon: string | null
           id: string
           name: string
+          parent_id: string | null
           type: Database["public"]["Enums"]["transaction_type"]
           user_id: string
         }
@@ -66,6 +67,7 @@ export type Database = {
           icon?: string | null
           id?: string
           name: string
+          parent_id?: string | null
           type: Database["public"]["Enums"]["transaction_type"]
           user_id?: string
         }
@@ -76,16 +78,25 @@ export type Database = {
           icon?: string | null
           id?: string
           name?: string
+          parent_id?: string | null
           type?: Database["public"]["Enums"]["transaction_type"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_parent_fkey"
+            columns: ["parent_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
       }
       transactions: {
         Row: {
           account_id: string
           amount: number
-          category_id: string | null
+          category_id: string
           created_at: string
           date: string
           description: string | null
@@ -98,7 +109,7 @@ export type Database = {
         Insert: {
           account_id: string
           amount: number
-          category_id?: string | null
+          category_id: string
           created_at?: string
           date?: string
           description?: string | null
@@ -111,7 +122,7 @@ export type Database = {
         Update: {
           account_id?: string
           amount?: number
-          category_id?: string | null
+          category_id?: string
           created_at?: string
           date?: string
           description?: string | null
@@ -152,6 +163,13 @@ export type Database = {
           account_id: string | null
           balance: number | null
           user_id: string | null
+        }
+        Relationships: []
+      }
+      category_usage: {
+        Row: {
+          category_id: string | null
+          transaction_count: number | null
         }
         Relationships: []
       }

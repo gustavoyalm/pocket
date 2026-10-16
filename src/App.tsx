@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from '@/auth/AuthProvider';
 import { isConfigured } from '@/lib/env';
 import { AppLayout } from '@/components/AppLayout';
 import { Accounts } from '@/pages/Accounts';
+import { Categories } from '@/pages/Categories';
 import { Dashboard } from '@/pages/Dashboard';
 import { Login } from '@/pages/Login';
 import { NotConfigured } from '@/pages/NotConfigured';
@@ -33,6 +34,7 @@ export default function App() {
               <Route index element={<Dashboard />} />
               <Route path="transacoes" element={<Transactions />} />
               <Route path="contas" element={<Accounts />} />
+              <Route path="categorias" element={<Categories />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
