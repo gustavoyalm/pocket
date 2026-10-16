@@ -115,7 +115,6 @@ export type Database = {
           installment_total: number | null
           invoice_month: string | null
           notes: string | null
-          period: string | null
           tags: string[]
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at: string
@@ -134,7 +133,6 @@ export type Database = {
           installment_total?: number | null
           invoice_month?: string | null
           notes?: string | null
-          period?: string | null
           tags?: string[]
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
@@ -153,7 +151,6 @@ export type Database = {
           installment_total?: number | null
           invoice_month?: string | null
           notes?: string | null
-          period?: string | null
           tags?: string[]
           type?: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string

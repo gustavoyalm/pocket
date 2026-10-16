@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from './supabase';
+import { monthBounds } from './dates';
 import type { Enums, Tables, TablesInsert, TablesUpdate } from './database.types';
 
 export type TransactionType = Enums<'transaction_type'>;
@@ -7,18 +8,17 @@ export type Transaction = Tables<'transactions'>;
 
 const parse = (rows: Transaction[]) => rows.map((t) => ({ ...t, amount: Number(t.amount) }));
 
-/**
- * Transações que contam no mês ("YYYY-MM"): pela data, ou pela fatura quando é cartão
- * (coluna `period`, calculada no banco).
- */
+/** Transações com data dentro do mês ("YYYY-MM"), inclusive as de cartão (pela data da compra). */
 export function useTransactions(month: string) {
   return useQuery({
     queryKey: ['transactions', month],
     queryFn: async (): Promise<Transaction[]> => {
+      const [start, end] = monthBounds(month);
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
-        .eq('period', `${month}-01`)
+        .gte('date', start)
+        .lt('date', end)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
       if (error) throw error;

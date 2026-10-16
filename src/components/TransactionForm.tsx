@@ -212,7 +212,7 @@ export function TransactionForm({ transaction, onDone }: Props) {
       {parts > 1 && value !== null && value > 0 && (
         <p className="text-muted-foreground -mt-2 text-xs">
           {parts}x de <span className="money">{formatMoney(Math.floor((value / parts) * 100) / 100)}</span>, uma
-          em cada fatura a partir de {formatInvoice(invoice || autoInvoice!)}.
+          por mês, a partir da fatura de {formatInvoice(invoice || autoInvoice!)}.
         </p>
       )}
 

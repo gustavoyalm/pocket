@@ -152,7 +152,15 @@ export function TransactionTable({
                 </span>
               </Td>
               <Td className="text-muted-foreground hidden md:table-cell">
-                <span className="block max-w-48 truncate xl:max-w-56">{account?.name}</span>
+                <span className="block max-w-48 truncate xl:max-w-56">
+                  {account?.name}
+                  {t.invoice_month && (
+                    <span className="text-muted-foreground/70 text-xs" title="Fatura">
+                      {' '}
+                      · {formatInvoice(t.invoice_month.slice(0, 7))}
+                    </span>
+                  )}
+                </span>
               </Td>
               <Td
                 className={cn(
