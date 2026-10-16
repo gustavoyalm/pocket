@@ -81,6 +81,7 @@ function useInvalidate() {
     Promise.all([
       qc.invalidateQueries({ queryKey: ['transactions'] }),
       qc.invalidateQueries({ queryKey: ['tags'] }),
+      qc.invalidateQueries({ queryKey: ['reports'] }),
       qc.invalidateQueries({ queryKey: ['accounts'] }),
       qc.invalidateQueries({ queryKey: ['invoices'] }),
       qc.invalidateQueries({ queryKey: ['categories', 'usage'] }),

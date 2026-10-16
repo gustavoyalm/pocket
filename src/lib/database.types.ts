@@ -339,6 +339,38 @@ export type Database = {
         }
         Returns: string
       }
+      report_by_category: {
+        Args: {
+          p_account_id?: string
+          p_end: string
+          p_paid_only?: boolean
+          p_start: string
+          p_tag_id?: string
+          p_type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Returns: { category_id: string; total: number; transaction_count: number }[]
+      }
+      report_by_tag: {
+        Args: {
+          p_account_id?: string
+          p_end: string
+          p_paid_only?: boolean
+          p_start: string
+          p_type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Returns: { tag_id: string | null; total: number; transaction_count: number }[]
+      }
+      report_monthly: {
+        Args: {
+          p_account_id?: string
+          p_basis?: string
+          p_end: string
+          p_paid_only?: boolean
+          p_start: string
+          p_tag_id?: string
+        }
+        Returns: { expense: number; income: number; month: string }[]
+      }
       set_transaction_tags: {
         Args: { p_names: string[]; p_transaction_ids: string[] }
         Returns: undefined

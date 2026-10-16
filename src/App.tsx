@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
@@ -11,6 +12,9 @@ import { Login } from '@/pages/Login';
 import { NotConfigured } from '@/pages/NotConfigured';
 import { Tags } from '@/pages/Tags';
 import { Transactions } from '@/pages/Transactions';
+
+// Relatórios carregam a biblioteca de gráficos: só baixa quando a tela é aberta
+const Reports = lazy(() => import('@/pages/Reports'));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
@@ -39,6 +43,14 @@ export default function App() {
               <Route path="contas" element={<Accounts />} />
               <Route path="categorias" element={<Categories />} />
               <Route path="tags" element={<Tags />} />
+              <Route
+                path="relatorios"
+                element={
+                  <Suspense fallback={<div className="bg-muted/50 h-96 animate-pulse rounded-lg border" />}>
+                    <Reports />
+                  </Suspense>
+                }
+              />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

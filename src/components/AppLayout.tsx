@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeftRight, CreditCard, LayoutDashboard, LogOut, Tag, Tags, Wallet } from 'lucide-react';
+import { ArrowLeftRight, ChartColumn, CreditCard, LayoutDashboard, LogOut, Tag, Tags, Wallet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthProvider';
 import { cn } from '@/lib/utils';
@@ -13,6 +13,7 @@ const nav = [
   { to: '/', label: 'Visão geral', icon: LayoutDashboard, ready: true },
   { to: '/transacoes', label: 'Transações', icon: ArrowLeftRight, ready: true },
   { to: '/faturas', label: 'Faturas', icon: CreditCard, ready: true },
+  { to: '/relatorios', label: 'Relatórios', icon: ChartColumn, ready: true },
   { to: '/contas', label: 'Contas', icon: Wallet, ready: true },
   { to: '/categorias', label: 'Categorias', icon: Tags, ready: true },
   { to: '/tags', label: 'Tags', icon: Tag, ready: true },

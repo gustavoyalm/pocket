@@ -34,6 +34,8 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-chart-income: var(--chart-income);
+  --color-chart-expense: var(--chart-expense);
 }
 
 /* Paleta neutra (zinc) — light */
@@ -65,6 +67,9 @@
   --chart-3: oklch(0.398 0.07 227.4);
   --chart-4: oklch(0.828 0.189 84.4);
   --chart-5: oklch(0.769 0.188 70.1);
+  /* Receita × despesa nos gráficos: azul × laranja (passa no teste de daltonismo; verde × vermelho não) */
+  --chart-income: #2a78d6;
+  --chart-expense: #eb6834;
 }
 
 /* Dark */
@@ -95,6 +100,8 @@
   --chart-3: oklch(0.769 0.188 70.1);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.4);
+  --chart-income: #3987e5;
+  --chart-expense: #d95926;
 }
 
 @layer base {
