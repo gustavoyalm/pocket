@@ -1,19 +1,25 @@
+import { Link } from 'react-router-dom';
 import { ArrowDownRight, ArrowUpRight, Wallet } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { useAccounts } from '@/lib/accounts';
 import { cn, formatMoney } from '@/lib/utils';
 
 const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(
   new Date(),
 );
 
-// Valores fixos por enquanto — virão do Supabase quando criarmos as tabelas
-const stats = [
-  { label: 'Saldo total', value: 0, icon: Wallet, tone: '' },
-  { label: 'Receitas do mês', value: 0, icon: ArrowUpRight, tone: 'text-success' },
-  { label: 'Despesas do mês', value: 0, icon: ArrowDownRight, tone: 'text-destructive' },
-];
-
 export function Dashboard() {
+  const { data: accounts } = useAccounts();
+  const active = accounts?.filter((a) => !a.archived) ?? [];
+  const total = active.reduce((sum, a) => sum + a.balance, 0);
+
+  // Receitas/despesas virão das transações (próxima etapa)
+  const stats = [
+    { label: 'Saldo total', value: total, icon: Wallet, tone: total < 0 ? 'text-destructive' : '' },
+    { label: 'Receitas do mês', value: 0, icon: ArrowUpRight, tone: 'text-success' },
+    { label: 'Despesas do mês', value: 0, icon: ArrowDownRight, tone: 'text-destructive' },
+  ];
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header>
@@ -33,8 +39,17 @@ export function Dashboard() {
         ))}
       </div>
 
-      <Card className="text-muted-foreground flex min-h-48 items-center justify-center p-6 text-center text-sm">
-        Nenhuma transação ainda. Em breve você vai poder cadastrar contas e lançamentos por aqui.
+      <Card className="text-muted-foreground flex min-h-48 flex-col items-center justify-center gap-2 p-6 text-center text-sm">
+        {accounts && active.length === 0 ? (
+          <>
+            Comece cadastrando suas contas.
+            <Link to="/contas" className="text-foreground font-medium underline-offset-4 hover:underline">
+              Ir para Contas
+            </Link>
+          </>
+        ) : (
+          'Nenhuma transação ainda. O lançamento de transações é a próxima etapa.'
+        )}
       </Card>
     </div>
   );

@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeftRight, LayoutDashboard, LogOut, Tags, Wallet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthProvider';
@@ -10,7 +11,7 @@ import { Button } from './ui/button';
 const nav = [
   { to: '/', label: 'Visão geral', icon: LayoutDashboard, ready: true },
   { to: '/transacoes', label: 'Transações', icon: ArrowLeftRight, ready: false },
-  { to: '/contas', label: 'Contas', icon: Wallet, ready: false },
+  { to: '/contas', label: 'Contas', icon: Wallet, ready: true },
   { to: '/categorias', label: 'Categorias', icon: Tags, ready: false },
 ];
 
@@ -19,7 +20,11 @@ const itemClass =
 
 export function AppLayout() {
   const { session } = useAuth();
-  const signOut = () => supabase.auth.signOut();
+  const queryClient = useQueryClient();
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    queryClient.clear(); // não deixa dados em cache para o próximo usuário
+  };
 
   return (
     <div className="flex min-h-svh flex-col md:flex-row">
