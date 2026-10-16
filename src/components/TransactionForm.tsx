@@ -6,6 +6,7 @@ import { todayISO } from '@/lib/dates';
 import {
   useDeleteTransaction,
   useSaveTransaction,
+  useTags,
   type Transaction,
   type TransactionType,
 } from '@/lib/transactions';
@@ -13,6 +14,7 @@ import { cn, parseMoney, toMoneyInput } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Input, Label } from './ui/input';
 import { Select } from './ui/select';
+import { TagInput } from './ui/tag-input';
 
 type Props = { transaction?: Transaction; onDone: () => void };
 
@@ -30,6 +32,8 @@ export function TransactionForm({ transaction, onDone }: Props) {
   const [accountId, setAccountId] = useState(transaction?.account_id ?? '');
   const [categoryId, setCategoryId] = useState(transaction?.category_id ?? '');
   const [notes, setNotes] = useState(transaction?.notes ?? '');
+  const [tags, setTags] = useState<string[]>(transaction?.tags ?? []);
+  const { data: tagSuggestions } = useTags();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,6 +91,7 @@ export function TransactionForm({ transaction, onDone }: Props) {
         account_id: selectedAccount,
         category_id: categoryId,
         notes: notes.trim() || null,
+        tags,
       });
       onDone();
     } catch (err) {
@@ -196,6 +201,19 @@ export function TransactionForm({ transaction, onDone }: Props) {
             </option>
           ))}
         </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="tx-tags">
+          Tags <span className="text-muted-foreground font-normal">(separe por vírgula)</span>
+        </Label>
+        <TagInput
+          id="tx-tags"
+          value={tags}
+          onChange={setTags}
+          suggestions={tagSuggestions}
+          placeholder="Ex.: viagem, reembolsável"
+        />
       </div>
 
       <div className="space-y-2">

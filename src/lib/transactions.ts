@@ -24,6 +24,26 @@ export function useTransactions(month: string) {
   });
 }
 
+/** Tags já usadas, das mais usadas para as menos (para sugestões e filtro). */
+export function useTags() {
+  return useQuery({
+    queryKey: ['transactions', 'tags'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('transaction_tags')
+        .select('*')
+        .order('uses', { ascending: false });
+      if (error) throw error;
+      return data.map((t) => t.tag!);
+    },
+  });
+}
+
+/** Mesma padronização do banco: sem espaços extras, minúsculas. */
+export function normalizeTag(tag: string) {
+  return tag.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 export function summarize(transactions: Transaction[] | undefined) {
   let income = 0;
   let expense = 0;

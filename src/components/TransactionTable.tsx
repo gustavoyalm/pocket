@@ -9,9 +9,11 @@ import { Table, Td, Th, THead, Tr } from './ui/table';
 type Props = {
   transactions: Transaction[];
   onSelect: (t: Transaction) => void;
+  /** Clique numa tag (ex.: para filtrar). Sem isso, as tags só são exibidas. */
+  onTagClick?: (tag: string) => void;
 };
 
-export function TransactionTable({ transactions, onSelect }: Props) {
+export function TransactionTable({ transactions, onSelect, onTagClick }: Props) {
   const { data: accounts } = useAccounts();
   const categories = useCategoryLookup();
   const accountsById = useMemo(() => new Map(accounts?.map((a) => [a.id, a])), [accounts]);
@@ -39,9 +41,29 @@ export function TransactionTable({ transactions, onSelect }: Props) {
                 {date} <span className="text-muted-foreground">{weekday}</span>
               </Td>
               <Td className="w-full max-w-0">
-                <div className="truncate">
-                  {t.description || <span className="text-muted-foreground">{sub?.name ?? 'Sem descrição'}</span>}
-                  {t.notes && <span className="text-muted-foreground ml-2 text-xs">{t.notes}</span>}
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <span className="truncate">
+                    {t.description || <span className="text-muted-foreground">{sub?.name ?? 'Sem descrição'}</span>}
+                    {t.notes && <span className="text-muted-foreground ml-2 text-xs">{t.notes}</span>}
+                  </span>
+                  {t.tags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      title={onTagClick ? `Filtrar por "${tag}"` : undefined}
+                      onClick={(e) => {
+                        if (!onTagClick) return;
+                        e.stopPropagation();
+                        onTagClick(tag);
+                      }}
+                      className={cn(
+                        'bg-secondary text-muted-foreground shrink-0 rounded px-1.5 text-[11px] leading-5',
+                        onTagClick ? 'hover:text-foreground cursor-pointer' : 'cursor-default',
+                      )}
+                    >
+                      {tag}
+                    </button>
+                  ))}
                 </div>
               </Td>
               <Td className="hidden md:table-cell">

@@ -102,6 +102,7 @@ export type Database = {
           description: string | null
           id: string
           notes: string | null
+          tags: string[]
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at: string
           user_id: string
@@ -115,6 +116,7 @@ export type Database = {
           description?: string | null
           id?: string
           notes?: string | null
+          tags?: string[]
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
           user_id?: string
@@ -128,6 +130,7 @@ export type Database = {
           description?: string | null
           id?: string
           notes?: string | null
+          tags?: string[]
           type?: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
           user_id?: string
@@ -170,6 +173,13 @@ export type Database = {
         Row: {
           category_id: string | null
           transaction_count: number | null
+        }
+        Relationships: []
+      }
+      transaction_tags: {
+        Row: {
+          tag: string | null
+          uses: number | null
         }
         Relationships: []
       }

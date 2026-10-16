@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
 import { useAccounts } from '@/lib/accounts';
 import { groupCategories, useCategories } from '@/lib/categories';
 import { currentMonth, formatMonth, isValidMonth, shiftMonth } from '@/lib/dates';
-import { summarize, useTransactions, type TransactionType } from '@/lib/transactions';
+import { summarize, useTags, useTransactions, type TransactionType } from '@/lib/transactions';
 import { cn, formatMoney } from '@/lib/utils';
 import { useTransactionDialog } from '@/components/TransactionDialog';
 import { TransactionTable } from '@/components/TransactionTable';
@@ -36,6 +36,8 @@ export function Transactions() {
   const [accountFilter, setAccountFilter] = useState('');
   // Filtro de categoria: id de uma categoria-pai (pega todas as subs) ou de uma subcategoria
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
+  const { data: tags } = useTags();
   const [search, setSearch] = useState('');
 
   const filtered = useMemo(() => {
@@ -54,15 +56,17 @@ export function Transactions() {
         (!categoryFilter ||
           t.category_id === categoryFilter ||
           byId.get(t.category_id)?.parent_id === categoryFilter) &&
+        (!tagFilter || t.tags.includes(tagFilter)) &&
         (!q ||
           t.description?.toLowerCase().includes(q) ||
+          t.tags.some((tag) => tag.includes(q)) ||
           t.notes?.toLowerCase().includes(q) ||
           categoryText(t.category_id).includes(q)),
     );
-  }, [transactions, categories, typeFilter, accountFilter, categoryFilter, search]);
+  }, [transactions, categories, typeFilter, accountFilter, categoryFilter, tagFilter, search]);
 
   const totals = summarize(filtered);
-  const hasFilters = typeFilter !== 'all' || accountFilter || categoryFilter || search;
+  const hasFilters = typeFilter !== 'all' || accountFilter || categoryFilter || tagFilter || search;
   const categoryGroups = groupCategories(categories).filter(
     (g) => typeFilter === 'all' || g.type === typeFilter,
   );
@@ -154,6 +158,24 @@ export function Transactions() {
               ))}
             </Select>
           </div>
+          {(tags?.length ?? 0) > 0 && (
+            <div className="sm:w-40">
+              <Select
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+                aria-label="Tag"
+                className="h-8 text-xs"
+              >
+                <option value="">Todas as tags</option>
+                {/* mantém a tag clicada na lista mesmo se ela não estiver nas sugestões */}
+                {[...new Set([...(tagFilter ? [tagFilter] : []), ...(tags ?? [])])].map((tag) => (
+                  <option key={tag} value={tag}>
+                    {tag}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
           <div className="relative sm:w-56">
             <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
             <Input
@@ -189,7 +211,7 @@ export function Transactions() {
         </div>
       ) : (
         <>
-          <TransactionTable transactions={filtered} onSelect={openTransaction} />
+          <TransactionTable transactions={filtered} onSelect={openTransaction} onTagClick={setTagFilter} />
           <p className="text-muted-foreground text-xs">
             {filtered.length} {filtered.length === 1 ? 'transação' : 'transações'}
           </p>
