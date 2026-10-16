@@ -6,6 +6,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { Accounts } from '@/pages/Accounts';
 import { Categories } from '@/pages/Categories';
 import { Dashboard } from '@/pages/Dashboard';
+import { Invoices } from '@/pages/Invoices';
 import { Login } from '@/pages/Login';
 import { NotConfigured } from '@/pages/NotConfigured';
 import { Transactions } from '@/pages/Transactions';
@@ -33,6 +34,7 @@ export default function App() {
             <Route element={<RequireAuth />}>
               <Route index element={<Dashboard />} />
               <Route path="transacoes" element={<Transactions />} />
+              <Route path="faturas" element={<Invoices />} />
               <Route path="contas" element={<Accounts />} />
               <Route path="categorias" element={<Categories />} />
             </Route>

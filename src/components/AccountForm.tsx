@@ -21,6 +21,10 @@ export function AccountForm({ account, onDone }: Props) {
   const [initial, setInitial] = useState(account ? toMoneyInput(account.initial_balance) : '');
   const [color, setColor] = useState(account?.color ?? accountColors[0]);
   const [archived, setArchived] = useState(account?.archived ?? false);
+  const [closingDay, setClosingDay] = useState(account?.closing_day?.toString() ?? '');
+  const [dueDay, setDueDay] = useState(account?.due_day?.toString() ?? '');
+  const [limit, setLimit] = useState(account?.credit_limit != null ? toMoneyInput(Number(account.credit_limit)) : '');
+  const isCard = type === 'credit_card';
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,9 +36,28 @@ export function AccountForm({ account, onDone }: Props) {
     e.preventDefault();
     const initial_balance = initial.trim() === '' ? 0 : parseMoney(initial);
     if (initial_balance === null) return setError('Saldo inicial inválido.');
+    const closing = Number(closingDay);
+    const due = Number(dueDay);
+    const credit_limit = limit.trim() === '' ? null : parseMoney(limit);
+    if (isCard) {
+      if (!Number.isInteger(closing) || closing < 1 || closing > 31) return setError('Dia de fechamento: de 1 a 31.');
+      if (!Number.isInteger(due) || due < 1 || due > 31) return setError('Dia de vencimento: de 1 a 31.');
+      if (limit.trim() && (credit_limit === null || credit_limit < 0)) return setError('Limite inválido.');
+    }
     setError(null);
     try {
-      await save.mutateAsync({ id: account?.id, name: name.trim(), type, initial_balance, color, archived });
+      await save.mutateAsync({
+        id: account?.id,
+        name: name.trim(),
+        type,
+        initial_balance,
+        color,
+        archived,
+        // Campos de cartão só existem para cartão (o banco exige isso)
+        closing_day: isCard ? closing : null,
+        due_day: isCard ? due : null,
+        credit_limit: isCard ? credit_limit : null,
+      });
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível salvar.');
@@ -79,7 +102,7 @@ export function AccountForm({ account, onDone }: Props) {
           </Select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="acc-initial">Saldo inicial</Label>
+          <Label htmlFor="acc-initial">{isCard ? 'Saldo inicial (dívida)' : 'Saldo inicial'}</Label>
           <Input
             id="acc-initial"
             inputMode="decimal"
@@ -90,10 +113,55 @@ export function AccountForm({ account, onDone }: Props) {
           />
         </div>
       </div>
-      {type === 'credit_card' && (
-        <p className="text-muted-foreground -mt-2 text-xs">
-          Para cartão, use valor negativo se já houver fatura em aberto (ex.: -350,00).
-        </p>
+      {isCard && (
+        <>
+          <p className="text-muted-foreground -mt-2 text-xs">
+            Use negativo para uma dívida anterior ao pocket (ex.: -350,00). O ideal é deixar 0 e lançar
+            as compras da fatura atual normalmente.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="acc-closing">Dia de fechamento</Label>
+              <Input
+                id="acc-closing"
+                inputMode="numeric"
+                required
+                placeholder="Ex.: 28"
+                className="money"
+                value={closingDay}
+                onChange={(e) => setClosingDay(e.target.value.replace(/\D/g, '').slice(0, 2))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="acc-due">Dia de vencimento</Label>
+              <Input
+                id="acc-due"
+                inputMode="numeric"
+                required
+                placeholder="Ex.: 5"
+                className="money"
+                value={dueDay}
+                onChange={(e) => setDueDay(e.target.value.replace(/\D/g, '').slice(0, 2))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="acc-limit">
+                Limite <span className="text-muted-foreground font-normal">(opcional)</span>
+              </Label>
+              <Input
+                id="acc-limit"
+                inputMode="decimal"
+                placeholder="0,00"
+                className="money"
+                value={limit}
+                onChange={(e) => setLimit(e.target.value)}
+              />
+            </div>
+          </div>
+          <p className="text-muted-foreground -mt-2 text-xs">
+            Compras feitas a partir do dia de fechamento entram na fatura seguinte.
+          </p>
+        </>
       )}
 
       <div className="space-y-2">

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useAccounts } from '@/lib/accounts';
+import { formatInvoice, invoiceFor, isCard } from '@/lib/cards';
 import { useCategories } from '@/lib/categories';
 import { currentMonth, formatDateInput, parseDateInput, todayISO } from '@/lib/dates';
-import { normalizeTag, useSaveTransaction } from '@/lib/transactions';
-import { cn, parseMoney } from '@/lib/utils';
+import { normalizeTag, useCreateInstallments, useSaveTransaction } from '@/lib/transactions';
+import { cn, formatMoney, parseMoney } from '@/lib/utils';
 import { CategoryCombobox, type CategoryComboboxHandle } from './CategoryCombobox';
 
 type Props = {
@@ -22,6 +23,7 @@ export function TransactionInlineRow({ month, onClose }: Props) {
   const { data: accounts } = useAccounts();
   const { data: categories } = useCategories();
   const save = useSaveTransaction();
+  const createInstallments = useCreateInstallments();
 
   const activeAccounts = accounts?.filter((a) => !a.archived) ?? [];
   const defaultDate = month === currentMonth() ? todayISO() : `${month}-01`;
@@ -32,6 +34,7 @@ export function TransactionInlineRow({ month, onClose }: Props) {
   const [categoryId, setCategoryId] = useState('');
   const [accountId, setAccountId] = useState('');
   const [amount, setAmount] = useState('');
+  const [installments, setInstallments] = useState('');
   const [invalid, setInvalid] = useState<Field[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,10 +46,14 @@ export function TransactionInlineRow({ month, onClose }: Props) {
 
   const account = accountId || activeAccounts[0]?.id || '';
   const type = categories?.find((c) => c.id === categoryId)?.type ?? 'expense';
+  const card = activeAccounts.find((a) => a.id === account && isCard(a));
+  const parsedDate = parseDateInput(date, month);
+  const parts = card && type === 'expense' ? Math.max(1, Math.min(72, Number(installments) || 1)) : 1;
+  const value = parseMoney(amount);
+  // Dica de fatura: em qual fatura a compra (ou a 1ª parcela) vai cair
+  const invoiceHint = card && parsedDate ? formatInvoice(invoiceFor(parsedDate, card)) : null;
 
   async function submit() {
-    const parsedDate = parseDateInput(date, month);
-    const value = parseMoney(amount);
     const problems: Field[] = [];
     if (!parsedDate) problems.push('date');
     if (!categoryId) problems.push('category');
@@ -68,20 +75,34 @@ export function TransactionInlineRow({ month, onClose }: Props) {
     }
     setError(null);
     try {
-      await save.mutateAsync({
-        date: parsedDate!,
-        description: description.trim() || null,
-        tags: tags.split(',').map(normalizeTag).filter(Boolean),
-        category_id: categoryId,
-        account_id: account,
-        type,
-        amount: value!,
-      });
+      const tagList = tags.split(',').map(normalizeTag).filter(Boolean);
+      if (parts > 1) {
+        await createInstallments.mutateAsync({
+          accountId: account,
+          categoryId,
+          amount: value!,
+          installments: parts,
+          date: parsedDate!,
+          description: description.trim() || null,
+          tags: tagList,
+        });
+      } else {
+        await save.mutateAsync({
+          date: parsedDate!,
+          description: description.trim() || null,
+          tags: tagList,
+          category_id: categoryId,
+          account_id: account,
+          type,
+          amount: value!,
+        });
+      }
       // Pronto para a próxima: mantém data e conta
       setDescription('');
       setTags('');
       setCategoryId('');
       setAmount('');
+      setInstallments('');
       descriptionRef.current?.focus();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível salvar.');
@@ -163,6 +184,20 @@ export function TransactionInlineRow({ month, onClose }: Props) {
           </select>
         </td>
         <td className="px-1.5 py-1">
+          <div className="flex items-center gap-1">
+          {card && type === 'expense' && (
+            <label className="text-muted-foreground flex shrink-0 items-center text-xs" title="Parcelas">
+              <input
+                aria-label="Parcelas"
+                inputMode="numeric"
+                placeholder="1"
+                value={installments}
+                onChange={(e) => setInstallments(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                className={cn(cellInput, 'money w-7 px-0.5 text-center text-xs')}
+              />
+              x
+            </label>
+          )}
           <input
             ref={amountRef}
             aria-label="Valor"
@@ -177,16 +212,30 @@ export function TransactionInlineRow({ month, onClose }: Props) {
               type === 'income' ? 'text-success' : 'text-destructive',
             )}
           />
+          </div>
         </td>
       </tr>
       <tr className="border-b">
         <td colSpan={5} className="text-muted-foreground px-3 py-1 text-[11px]">
           {error ? (
             <span className="text-destructive">{error}</span>
-          ) : save.isPending ? (
+          ) : save.isPending || createInstallments.isPending ? (
             'Salvando…'
           ) : (
             <>
+              {invoiceHint && (
+                <span className="text-foreground mr-2">
+                  {parts > 1 && value ? (
+                    <>
+                      {parts}x de <span className="money">{formatMoney(Math.floor((value / parts) * 100) / 100)}</span> a
+                      partir da fatura {invoiceHint}
+                    </>
+                  ) : (
+                    <>fatura {invoiceHint}</>
+                  )}{' '}
+                  ·
+                </span>
+              )}
               <Kbd>Enter</Kbd> salva e abre a próxima · <Kbd>Tab</Kbd> próximo campo · <Kbd>Esc</Kbd> cancela
               · a categoria define se é despesa ou receita
             </>

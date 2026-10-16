@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
+import { ArrowLeftRight, ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
 import { useAccounts } from '@/lib/accounts';
 import { groupCategories, useCategories } from '@/lib/categories';
 import { currentMonth, formatMonth, isValidMonth, shiftMonth } from '@/lib/dates';
 import { summarize, useTags, useTransactions, type TransactionType } from '@/lib/transactions';
+import { useTransfers } from '@/lib/transfers';
 import { cn, formatMoney } from '@/lib/utils';
 import { useTransactionDialog } from '@/components/TransactionDialog';
 import { TransactionInlineRow } from '@/components/TransactionInlineRow';
@@ -31,7 +32,8 @@ export function Transactions() {
   const { data: transactions, isLoading, error } = useTransactions(month);
   const { data: accounts } = useAccounts();
   const { data: categories } = useCategories();
-  const { openTransaction, setNewTransactionHandler } = useTransactionDialog();
+  const { openTransaction, openTransfer, setNewTransactionHandler } = useTransactionDialog();
+  const { data: transfers } = useTransfers(month);
 
   // Teste: no desktop, nova transação é digitada direto numa linha da tabela (o "N" também abre)
   const [adding, setAdding] = useState(false);
@@ -77,7 +79,19 @@ export function Transactions() {
     );
   }, [transactions, categories, typeFilter, accountFilter, categoryFilter, tagFilter, search]);
 
+  // Transferências só aparecem sem filtros de tipo/categoria/tag (não têm essas informações)
+  const filteredTransfers = useMemo(() => {
+    if (typeFilter !== 'all' || categoryFilter || tagFilter) return [];
+    const q = search.trim().toLowerCase();
+    return (transfers ?? []).filter(
+      (t) =>
+        (!accountFilter || t.from_account_id === accountFilter || t.to_account_id === accountFilter) &&
+        (!q || t.description?.toLowerCase().includes(q)),
+    );
+  }, [transfers, typeFilter, categoryFilter, tagFilter, accountFilter, search]);
+
   const totals = summarize(filtered);
+  const rowCount = filtered.length + filteredTransfers.length;
   const hasFilters = typeFilter !== 'all' || accountFilter || categoryFilter || tagFilter || search;
   const categoryGroups = groupCategories(categories).filter(
     (g) => typeFilter === 'all' || g.type === typeFilter,
@@ -90,6 +104,10 @@ export function Transactions() {
         actions={
           <>
             <Totals totals={totals} className="mr-3 hidden lg:flex" />
+            <Button size="sm" variant="outline" onClick={() => openTransfer()}>
+              <ArrowLeftRight />
+              Transferência
+            </Button>
             <Button size="sm" onClick={startNew}>
               <Plus />
               Nova transação
@@ -207,7 +225,7 @@ export function Transactions() {
 
       {isLoading ? (
         <div className="bg-muted/50 h-64 animate-pulse rounded-lg border" />
-      ) : filtered.length === 0 && !adding ? (
+      ) : rowCount === 0 && !adding ? (
         <div className="text-muted-foreground flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-sm">
           {hasFilters ? (
             'Nenhuma transação encontrada com esses filtros.'
@@ -226,11 +244,15 @@ export function Transactions() {
           <TransactionTable
             transactions={filtered}
             onSelect={openTransaction}
+            transfers={filteredTransfers}
+            onSelectTransfer={(t) => openTransfer(t)}
             onTagClick={setTagFilter}
             newRow={adding && <TransactionInlineRow month={month} onClose={() => setAdding(false)} />}
           />
           <p className="text-muted-foreground text-xs">
             {filtered.length} {filtered.length === 1 ? 'transação' : 'transações'}
+            {filteredTransfers.length > 0 &&
+              ` · ${filteredTransfers.length} ${filteredTransfers.length === 1 ? 'transferência' : 'transferências'}`}
           </p>
         </>
       )}

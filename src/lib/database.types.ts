@@ -18,8 +18,11 @@ export type Database = {
       accounts: {
         Row: {
           archived: boolean
+          closing_day: number | null
           color: string | null
           created_at: string
+          credit_limit: number | null
+          due_day: number | null
           id: string
           initial_balance: number
           name: string
@@ -28,8 +31,11 @@ export type Database = {
         }
         Insert: {
           archived?: boolean
+          closing_day?: number | null
           color?: string | null
           created_at?: string
+          credit_limit?: number | null
+          due_day?: number | null
           id?: string
           initial_balance?: number
           name: string
@@ -38,8 +44,11 @@ export type Database = {
         }
         Update: {
           archived?: boolean
+          closing_day?: number | null
           color?: string | null
           created_at?: string
+          credit_limit?: number | null
+          due_day?: number | null
           id?: string
           initial_balance?: number
           name?: string
@@ -101,7 +110,12 @@ export type Database = {
           date: string
           description: string | null
           id: string
+          installment_group: string | null
+          installment_number: number | null
+          installment_total: number | null
+          invoice_month: string | null
           notes: string | null
+          period: string | null
           tags: string[]
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at: string
@@ -115,7 +129,12 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
+          installment_group?: string | null
+          installment_number?: number | null
+          installment_total?: number | null
+          invoice_month?: string | null
           notes?: string | null
+          period?: string | null
           tags?: string[]
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
@@ -129,20 +148,18 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
+          installment_group?: string | null
+          installment_number?: number | null
+          installment_total?: number | null
+          invoice_month?: string | null
           notes?: string | null
+          period?: string | null
           tags?: string[]
           type?: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "transactions_account_id_user_id_fkey"
-            columns: ["account_id", "user_id"]
-            isOneToOne: false
-            referencedRelation: "account_balances"
-            referencedColumns: ["account_id", "user_id"]
-          },
           {
             foreignKeyName: "transactions_account_id_user_id_fkey"
             columns: ["account_id", "user_id"]
@@ -159,12 +176,76 @@ export type Database = {
           },
         ]
       }
+      transfers: {
+        Row: {
+          amount: number
+          created_at: string
+          date: string
+          description: string | null
+          from_account_id: string
+          id: string
+          invoice_month: string | null
+          to_account_id: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          date?: string
+          description?: string | null
+          from_account_id: string
+          id?: string
+          invoice_month?: string | null
+          to_account_id: string
+          user_id?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          date?: string
+          description?: string | null
+          from_account_id?: string
+          id?: string
+          invoice_month?: string | null
+          to_account_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfers_from_account_id_user_id_fkey"
+            columns: ["from_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "transfers_to_account_id_user_id_fkey"
+            columns: ["to_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
     }
     Views: {
       account_balances: {
         Row: {
           account_id: string | null
           balance: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      card_invoices: {
+        Row: {
+          account_id: string | null
+          closing_date: string | null
+          due_date: string | null
+          invoice_month: string | null
+          paid: number | null
+          total: number | null
+          transaction_count: number | null
           user_id: string | null
         }
         Relationships: []
@@ -185,7 +266,20 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      create_installment_purchase: {
+        Args: {
+          p_account_id: string
+          p_amount: number
+          p_category_id: string
+          p_date: string
+          p_description?: string
+          p_first_invoice?: string
+          p_installments: number
+          p_notes?: string
+          p_tags?: string[]
+        }
+        Returns: string
+      }
     }
     Enums: {
       account_type:

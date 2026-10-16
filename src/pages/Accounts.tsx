@@ -62,8 +62,8 @@ export function Accounts() {
           <THead>
             <tr>
               <Th>Conta</Th>
-              <Th className="hidden w-48 sm:table-cell">Tipo</Th>
-              <Th className="hidden w-40 text-right md:table-cell">Saldo inicial</Th>
+              <Th className="hidden w-64 sm:table-cell">Tipo</Th>
+              <Th className="hidden w-40 text-right md:table-cell">Limite disponível</Th>
               <Th className="w-40 text-right">Saldo atual</Th>
             </tr>
           </THead>
@@ -77,9 +77,16 @@ export function Accounts() {
                     {a.archived && <span className="text-muted-foreground text-xs">arquivada</span>}
                   </span>
                 </Td>
-                <Td className="text-muted-foreground hidden sm:table-cell">{accountTypes[a.type].label}</Td>
+                <Td className="text-muted-foreground hidden sm:table-cell">
+                  {accountTypes[a.type].label}
+                  {a.type === 'credit_card' && (
+                    <span className="ml-2 text-xs">
+                      fecha dia {a.closing_day} · vence dia {a.due_day}
+                    </span>
+                  )}
+                </Td>
                 <Td className="money text-muted-foreground hidden text-right md:table-cell">
-                  {formatMoney(a.initial_balance)}
+                  {a.credit_limit != null ? formatMoney(Number(a.credit_limit) + a.balance) : ''}
                 </Td>
                 <Td className={cn('money text-right font-medium', a.balance < 0 && 'text-destructive')}>
                   {formatMoney(a.balance)}
