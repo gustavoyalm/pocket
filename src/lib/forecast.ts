@@ -6,9 +6,9 @@ import { formatInvoice, isCard } from './cards';
 import { currentMonth, shiftMonth, todayISO } from './dates';
 
 /**
- * Previsão de caixa: o que entra e sai das contas de banco (tudo que não é cartão), mês a mês.
+ * Previsão: o que entra e sai das contas de banco (tudo que não é cartão), mês a mês.
  *
- * Parte do saldo atual dessas contas e aplica, na data em que o dinheiro se move:
+ * Considera, na data em que o dinheiro se move:
  *  • transações pendentes das contas de banco (compras no cartão NÃO entram: quem sai do banco é a fatura)
  *  • transferências pendentes que entram/saem do conjunto de contas de banco (ex.: pagamento de fatura agendado)
  *  • faturas de cartão no vencimento, pelo que ainda falta pagar (total − pago − já agendado)
@@ -25,10 +25,9 @@ export type ForecastEvent = {
   description: string;
   accountName: string;
   amount: number; // com sinal: + entra, − sai
-  balance: number; // saldo previsto logo após este evento
 };
 
-/** Resumo de um mês: quanto há a pagar/receber e como termina o saldo. */
+/** Resumo de um mês: quanto há a pagar e a receber. */
 export type ForecastMonth = {
   month: string; // "YYYY-MM"
   payable: number; // total a pagar (positivo)
@@ -36,7 +35,6 @@ export type ForecastMonth = {
   invoices: number; // parte do "a pagar" que é fatura de cartão
   bills: number; // demais contas a pagar
   receivable: number;
-  endBalance: number; // saldo previsto no fim do mês
   events: ForecastEvent[];
 };
 
@@ -98,10 +96,9 @@ export function useForecast(months: number) {
       const a = byId.get(id);
       return !!a && !a.archived && !isCard(a);
     };
-    const start = accounts.filter((a) => isBank(a.id)).reduce((s, a) => s + a.balance, 0);
     const when = (date: string) => (date < today ? today : date);
 
-    const events: Omit<ForecastEvent, 'balance'>[] = [];
+    const events: ForecastEvent[] = [];
 
     for (const t of pending.data) {
       if (!isBank(t.account_id)) continue; // compras no cartão entram pela fatura
@@ -152,22 +149,16 @@ export function useForecast(months: number) {
       });
     }
 
-    // No mesmo dia, entradas antes das saídas: assim o saldo após o último evento do dia é o
-    // saldo de fim do dia, e tabela, gráfico e "menor saldo" mostram sempre os mesmos números
+    // Por data; no mesmo dia, entradas primeiro
     events.sort((a, b) => a.date.localeCompare(b.date) || b.amount - a.amount);
-
-    let running = start;
-    const withBalance: ForecastEvent[] = events.map((e) => ({ ...e, balance: (running += e.amount) }));
 
     // Agrupa por mês (atrasados já estão em "hoje", ou seja, no mês atual)
     const monthsList: ForecastMonth[] = [];
-    let balance = start;
     for (let m = currentMonth(); m <= lastMonth; m = shiftMonth(m, 1)) {
-      const evs = withBalance.filter((e) => e.date.startsWith(m));
+      const evs = events.filter((e) => e.date.startsWith(m));
       const out = evs.filter((e) => e.amount < 0);
       const invoicesOut = out.filter((e) => e.kind === 'invoice').reduce((t, e) => t - e.amount, 0);
       const allOut = out.reduce((t, e) => t - e.amount, 0);
-      if (evs.length) balance = evs[evs.length - 1].balance;
       monthsList.push({
         month: m,
         payable: allOut,
@@ -175,12 +166,11 @@ export function useForecast(months: number) {
         invoices: invoicesOut,
         bills: allOut - invoicesOut,
         receivable: evs.filter((e) => e.amount > 0).reduce((t, e) => t + e.amount, 0),
-        endBalance: balance,
         events: evs,
       });
     }
 
-    return { start, months: monthsList, events: withBalance };
+    return { months: monthsList, events };
   }, [accounts, pending.data, transfers.data, invoices.data, today, end]);
 
   return {

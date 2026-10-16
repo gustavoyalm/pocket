@@ -32,9 +32,6 @@ export function ForecastReport({ months }: { months: number }) {
               ver o que vence nele.
             </p>
           </div>
-          <p className="text-muted-foreground text-xs">
-            Saldo hoje nas contas <span className="money text-foreground font-medium">{formatMoney(data.start)}</span>
-          </p>
         </div>
 
         {max === 0 ? (
@@ -82,11 +79,7 @@ export function ForecastReport({ months }: { months: number }) {
                 <span className="money">{formatMoney(sel.bills)}</span>)
               </>
             )}{' '}
-            · a receber <span className="money text-foreground">{formatMoney(sel.receivable)}</span> · saldo no fim do
-            mês{' '}
-            <span className={cn('money text-foreground', sel.endBalance < 0 && 'text-destructive')}>
-              {formatMoney(sel.endBalance)}
-            </span>
+            · a receber <span className="money text-foreground">{formatMoney(sel.receivable)}</span>
           </span>
           <button
             type="button"
@@ -106,7 +99,6 @@ export function ForecastReport({ months }: { months: number }) {
               <Th>Descrição</Th>
               <Th className="hidden w-56 min-w-48 md:table-cell">Conta</Th>
               <Th className="w-40 min-w-36 text-right">Valor</Th>
-              <Th className="w-40 min-w-36 text-right">Saldo previsto</Th>
             </tr>
           </THead>
           <tbody>
@@ -121,9 +113,6 @@ export function ForecastReport({ months }: { months: number }) {
                       </Td>
                       <Td className="money text-muted-foreground text-right text-xs">
                         a pagar {formatMoney(m.payable)}
-                      </Td>
-                      <Td className={cn('money text-right text-xs', m.endBalance < 0 ? 'text-destructive' : 'text-muted-foreground')}>
-                        fim {formatMoney(m.endBalance)}
                       </Td>
                     </tr>,
                     ...m.events.map((e) => {
@@ -154,9 +143,6 @@ export function ForecastReport({ months }: { months: number }) {
                           <Td className={cn('money text-right', e.amount > 0 && 'text-success')}>
                             {e.amount > 0 ? '+' : '−'}
                             {formatMoney(Math.abs(e.amount))}
-                          </Td>
-                          <Td className={cn('money text-right', e.balance < 0 && 'text-destructive')}>
-                            {formatMoney(e.balance)}
                           </Td>
                         </Tr>
                       );
@@ -220,12 +206,6 @@ function MonthColumn({ m, max, heavy, selected, dimmed, onClick }: ColumnProps) 
         <p className="text-sm font-medium">{formatInvoice(m.month)}</p>
         <p className="text-muted-foreground text-[11px]">
           {m.payableCount} {m.payableCount === 1 ? 'conta' : 'contas'}
-        </p>
-        <p
-          className={cn('money text-[11px]', m.endBalance < 0 ? 'text-destructive font-medium' : 'text-muted-foreground')}
-          title="Saldo previsto no fim do mês"
-        >
-          saldo {formatMoney(m.endBalance)}
         </p>
       </div>
     </button>
