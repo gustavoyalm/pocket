@@ -10,7 +10,7 @@ export function Logo({ className }: { className?: string }) {
           fill="none"
           strokeWidth="2.5"
           strokeLinejoin="round"
-          className="stroke-success"
+          className="stroke-primary-foreground"
         />
       </svg>
       <span className="text-lg">pocket</span>

@@ -105,7 +105,7 @@ export function MonthlyReport({ filters, basis }: { filters: ReportFilters; basi
                 tickLine={false}
                 axisLine={false}
                 width={56}
-                tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontFamily: 'var(--font-mono)' }}
+                tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
               />
               <ReferenceLine y={0} stroke="var(--muted-foreground)" strokeOpacity={0.5} />
               <Tooltip

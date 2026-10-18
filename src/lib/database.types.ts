@@ -18,7 +18,9 @@ export type Database = {
       accounts: {
         Row: {
           archived: boolean
+          card_finals: string[]
           closing_day: number | null
+          import_since: string | null
           color: string | null
           created_at: string
           credit_limit: number | null
@@ -31,7 +33,9 @@ export type Database = {
         }
         Insert: {
           archived?: boolean
+          card_finals?: string[]
           closing_day?: number | null
+          import_since?: string | null
           color?: string | null
           created_at?: string
           credit_limit?: number | null
@@ -44,7 +48,9 @@ export type Database = {
         }
         Update: {
           archived?: boolean
+          card_finals?: string[]
           closing_day?: number | null
+          import_since?: string | null
           color?: string | null
           created_at?: string
           credit_limit?: number | null
@@ -100,6 +106,123 @@ export type Database = {
             referencedColumns: ["id", "user_id"]
           },
         ]
+      }
+      import_items: {
+        Row: {
+          account_id: string | null
+          amount: number
+          bank_status: string | null
+          card_final: string | null
+          category_id: string | null
+          date: string
+          decided_at: string | null
+          description: string
+          external_id: string
+          id: string
+          installment_number: number | null
+          installment_total: number | null
+          invoice_month: string | null
+          note: string | null
+          operation: string | null
+          purchase_date: string | null
+          purchase_ref: string | null
+          raw: Json
+          received_at: string
+          source: string
+          status: string
+          tags: string[]
+          transaction_id: string | null
+          type: Database["public"]["Enums"]["transaction_type"]
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          bank_status?: string | null
+          card_final?: string | null
+          category_id?: string | null
+          date: string
+          decided_at?: string | null
+          description: string
+          external_id: string
+          id?: string
+          installment_number?: number | null
+          installment_total?: number | null
+          invoice_month?: string | null
+          note?: string | null
+          operation?: string | null
+          purchase_date?: string | null
+          purchase_ref?: string | null
+          raw: Json
+          received_at?: string
+          source?: string
+          status?: string
+          tags?: string[]
+          transaction_id?: string | null
+          type: Database["public"]["Enums"]["transaction_type"]
+          user_id?: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          bank_status?: string | null
+          card_final?: string | null
+          category_id?: string | null
+          date?: string
+          decided_at?: string | null
+          description?: string
+          external_id?: string
+          id?: string
+          installment_number?: number | null
+          installment_total?: number | null
+          invoice_month?: string | null
+          note?: string | null
+          operation?: string | null
+          purchase_date?: string | null
+          purchase_ref?: string | null
+          raw?: Json
+          received_at?: string
+          source?: string
+          status?: string
+          tags?: string[]
+          transaction_id?: string | null
+          type?: Database["public"]["Enums"]["transaction_type"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      import_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          last_used_at: string | null
+          revoked_at: string | null
+          token_hash: string
+          token_hint: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+          token_hash: string
+          token_hint: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+          token_hash?: string
+          token_hint?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       tags: {
         Row: {
@@ -316,6 +439,37 @@ export type Database = {
         }
         Relationships: []
       }
+      import_items_review: {
+        Row: {
+          account_id: string | null
+          amount: number | null
+          bank_status: string | null
+          card_final: string | null
+          category_id: string | null
+          date: string | null
+          decided_at: string | null
+          description: string | null
+          external_id: string | null
+          id: string | null
+          installment_number: number | null
+          installment_total: number | null
+          invoice_month: string | null
+          note: string | null
+          operation: string | null
+          possible_duplicate: boolean | null
+          purchase_date: string | null
+          purchase_ref: string | null
+          raw: Json | null
+          received_at: string | null
+          source: string | null
+          status: string | null
+          tags: string[] | null
+          transaction_id: string | null
+          type: Database["public"]["Enums"]["transaction_type"] | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       tag_usage: {
         Row: {
           tag_id: string | null
@@ -325,6 +479,8 @@ export type Database = {
       }
     }
     Functions: {
+      approve_import_items: { Args: { p_ids: string[] }; Returns: number }
+      create_import_token: { Args: { p_label?: string }; Returns: string }
       create_installment_purchase: {
         Args: {
           p_account_id: string
@@ -338,6 +494,10 @@ export type Database = {
           p_tags?: string[]
         }
         Returns: string
+      }
+      ingest_import_items: {
+        Args: { p_items: Json; p_token: string }
+        Returns: Json
       }
       report_by_category: {
         Args: {

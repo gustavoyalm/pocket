@@ -6,6 +6,7 @@ import { groupCategories, useCategories } from '@/lib/categories';
 import { shiftMonth, todayISO } from '@/lib/dates';
 import {
   useCreateInstallments,
+  useInstallments,
   useDeleteTransaction,
   useSaveTransaction,
   type Transaction,
@@ -14,9 +15,11 @@ import {
 import { useTagLookup, useTags } from '@/lib/tags';
 import { cn, formatMoney, parseMoney, toMoneyInput } from '@/lib/utils';
 import { Button } from './ui/button';
-import { Input, Label } from './ui/input';
+import { Field, FormFooter, FormSection, Segmented, SwitchRow, textareaClass } from './ui/form';
+import { Input } from './ui/input';
 import { Select } from './ui/select';
 import { TagInput } from './ui/tag-input';
+import { useTransactionDialog } from './TransactionDialog';
 
 type Props = { transaction?: Transaction; onDone: () => void };
 
@@ -156,76 +159,70 @@ export function TransactionForm({ transaction, onDone }: Props) {
     }
   }
 
-  return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      {!isInstallment && (
-        <div className="bg-muted grid grid-cols-2 gap-1 rounded-lg p-1" role="radiogroup" aria-label="Tipo">
-          {(['expense', 'income'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              role="radio"
-              aria-checked={type === t}
-              onClick={() => changeType(t)}
-              className={cn(
-                'text-muted-foreground rounded-md py-1.5 text-sm font-medium transition-colors',
-                type === t && 'bg-background shadow-xs',
-                type === t && (t === 'expense' ? 'text-destructive' : 'text-success'),
-              )}
-            >
-              {t === 'expense' ? 'Despesa' : t === 'income' && card ? 'Estorno / crédito' : 'Receita'}
-            </button>
-          ))}
-        </div>
-      )}
+  const typeOptions = [
+    { value: 'expense' as const, label: 'Despesa', activeClass: 'text-destructive' },
+    { value: 'income' as const, label: card ? 'Estorno / crédito' : 'Receita', activeClass: 'text-success' },
+  ];
 
-      {isInstallment && (
-        <p className="bg-muted text-muted-foreground rounded-md px-3 py-2 text-xs">
-          Parcela <strong className="text-foreground">{transaction.installment_number}/{transaction.installment_total}</strong>{' '}
+  return (
+    <form onSubmit={onSubmit} className="space-y-5">
+      {isInstallment ? (
+        <p className="text-muted-foreground text-xs">
+          Parcela{' '}
+          <strong className="money text-foreground">
+            {transaction.installment_number}/{transaction.installment_total}
+          </strong>{' '}
           de uma compra parcelada. As alterações valem só para esta parcela.
         </p>
+      ) : (
+        <Segmented label="Tipo" value={type} onChange={changeType} options={typeOptions} />
       )}
 
-      <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
-        <div className="space-y-2">
-          <Label htmlFor="tx-amount">{parts > 1 ? 'Valor total da compra' : 'Valor'}</Label>
-          <Input
-            id="tx-amount"
-            inputMode="decimal"
-            placeholder="0,00"
-            required
-            autoFocus
-            className={cn('money h-11 text-lg', type === 'expense' ? 'text-destructive' : 'text-success')}
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-        </div>
-        {canSplit && (
-          <div className="space-y-2">
-            <Label htmlFor="tx-parts">Parcelas</Label>
-            <div className="flex items-center gap-1.5">
-              <Input
-                id="tx-parts"
-                inputMode="numeric"
-                className="money h-11 w-16 text-center"
-                value={installments}
-                onChange={(e) => setInstallments(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                onBlur={() => setInstallments(String(parts))}
-              />
-              <span className="text-muted-foreground text-sm">x</span>
-            </div>
+      <div className={cn('grid gap-4', canSplit ? 'sm:grid-cols-[1fr_11rem_6rem]' : 'sm:grid-cols-[1fr_11rem]')}>
+        <Field label={parts > 1 ? 'Valor total da compra' : 'Valor'} htmlFor="tx-amount">
+          <div className="relative">
+            <span className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm">
+              R$
+            </span>
+            <Input
+              id="tx-amount"
+              inputMode="decimal"
+              placeholder="0,00"
+              required
+              autoFocus
+              className={cn(
+                'money h-11 pl-10 text-lg font-semibold',
+                type === 'expense' ? 'text-destructive' : 'text-success',
+              )}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
           </div>
+        </Field>
+        <Field label={card ? 'Data da compra' : 'Data'} htmlFor="tx-date">
+          <Input id="tx-date" type="date" required className="h-11" value={date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+        {canSplit && (
+          <Field label="Parcelas" htmlFor="tx-parts">
+            <Input
+              id="tx-parts"
+              inputMode="numeric"
+              className="money h-11 text-center"
+              value={installments}
+              onChange={(e) => setInstallments(e.target.value.replace(/\D/g, '').slice(0, 2))}
+              onBlur={() => setInstallments(String(parts))}
+            />
+          </Field>
         )}
       </div>
       {parts > 1 && value !== null && value > 0 && (
         <p className="text-muted-foreground -mt-2 text-xs">
-          {parts}x de <span className="money">{formatMoney(Math.floor((value / parts) * 100) / 100)}</span>, uma
-          por mês, a partir da fatura de {formatInvoice(invoice || autoInvoice!)}.
+          {parts}x de <span className="money text-foreground">{formatMoney(Math.floor((value / parts) * 100) / 100)}</span>,
+          uma por mês, a partir da fatura de {formatInvoice(invoice || autoInvoice!)}.
         </p>
       )}
 
-      <div className="space-y-2">
-        <Label htmlFor="tx-desc">Descrição</Label>
+      <Field label="Descrição" htmlFor="tx-desc">
         <Input
           id="tx-desc"
           maxLength={200}
@@ -233,11 +230,10 @@ export function TransactionForm({ transaction, onDone }: Props) {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-      </div>
+      </Field>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="tx-category">Categoria</Label>
+        <Field label="Categoria" htmlFor="tx-category">
           <Select
             id="tx-category"
             required
@@ -258,22 +254,8 @@ export function TransactionForm({ transaction, onDone }: Props) {
               </optgroup>
             ))}
           </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="tx-date">{card ? 'Data da compra' : 'Data'}</Label>
-          <Input
-            id="tx-date"
-            type="date"
-            required
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className={cn('grid gap-4', card && 'sm:grid-cols-2')}>
-        <div className="space-y-2">
-          <Label htmlFor="tx-account">Conta</Label>
+        </Field>
+        <Field label="Conta" htmlFor="tx-account">
           <Select
             id="tx-account"
             value={selectedAccount}
@@ -289,10 +271,9 @@ export function TransactionForm({ transaction, onDone }: Props) {
               </option>
             ))}
           </Select>
-        </div>
+        </Field>
         {card && autoInvoice && (
-          <div className="space-y-2">
-            <Label htmlFor="tx-invoice">{parts > 1 ? '1ª fatura' : 'Fatura'}</Label>
+          <Field label={parts > 1 ? '1ª fatura' : 'Fatura'} htmlFor="tx-invoice">
             <Select id="tx-invoice" value={invoice} onChange={(e) => setInvoice(e.target.value)}>
               <option value="">Automática ({formatInvoice(autoInvoice)})</option>
               {invoiceOptions
@@ -303,84 +284,148 @@ export function TransactionForm({ transaction, onDone }: Props) {
                   </option>
                 ))}
             </Select>
-          </div>
+          </Field>
         )}
-      </div>
-
-      {parts === 1 && (
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={paid}
-            onChange={(e) => setPaidChoice(e.target.checked)}
-            className="accent-success size-4"
+        <Field label="Tags" htmlFor="tx-tags" className={cn(!(card && autoInvoice) && 'sm:col-span-2')}>
+          <TagInput
+            id="tx-tags"
+            value={tags}
+            onChange={setTags}
+            suggestions={tagSuggestions}
+            placeholder="Ex.: viagem, reembolsável"
           />
-          {type === 'income' ? 'Recebido' : 'Pago'}
-          <span className="text-muted-foreground text-xs">
-            {paid ? '(entra no saldo atual)' : '(pendente: só entra no saldo previsto)'}
-          </span>
-        </label>
-      )}
-
-      <div className="space-y-2">
-        <Label htmlFor="tx-tags">
-          Tags <span className="text-muted-foreground font-normal">(separe por vírgula)</span>
-        </Label>
-        <TagInput
-          id="tx-tags"
-          value={tags}
-          onChange={setTags}
-          suggestions={tagSuggestions}
-          placeholder="Ex.: viagem, reembolsável"
-        />
+        </Field>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="tx-notes">
-          Observações <span className="text-muted-foreground font-normal">(opcional)</span>
-        </Label>
+      <Field label="Observações" htmlFor="tx-notes" optional>
         <textarea
           id="tx-notes"
           rows={2}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className="border-input placeholder:text-muted-foreground dark:bg-input/30 focus-visible:border-ring focus-visible:ring-ring/50 w-full resize-none rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs focus-visible:ring-[3px] focus-visible:outline-none"
+          className={textareaClass}
         />
-      </div>
+      </Field>
+
+      {parts === 1 && (
+        <SwitchRow
+          checked={paid}
+          onChange={setPaidChoice}
+          tone="success"
+          label={type === 'income' ? 'Recebido' : 'Pago'}
+          description={paid ? 'Entra no saldo atual.' : 'Pendente: só entra no saldo previsto.'}
+        />
+      )}
+
+      {isInstallment && <InstallmentList transaction={transaction} />}
 
       {error && <p className="text-destructive text-sm">{error}</p>}
 
-      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center">
-        {transaction && (
-          <div className="flex flex-col gap-1 sm:flex-row">
-            <DeleteButton
-              armed={confirmDelete === 'one'}
-              disabled={busy}
-              onClick={() => onDelete('one')}
-              label={isInstallment ? 'Excluir parcela' : 'Excluir'}
-            />
-            {isInstallment && (
+      <FormFooter
+        left={
+          transaction && (
+            <>
               <DeleteButton
-                armed={confirmDelete === 'all'}
+                armed={confirmDelete === 'one'}
                 disabled={busy}
-                onClick={() => onDelete('all')}
-                label={`Excluir as ${transaction.installment_total}`}
+                onClick={() => onDelete('one')}
+                label={isInstallment ? 'Excluir parcela' : 'Excluir'}
               />
-            )}
-          </div>
-        )}
-        <div className="flex gap-2 sm:ml-auto">
-          <Button type="button" variant="outline" onClick={onDone} className="flex-1 sm:flex-none">
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={busy || !accounts} className="flex-1 sm:flex-none">
-            {busy ? 'Salvando…' : 'Salvar'}
-          </Button>
-        </div>
-      </div>
+              {isInstallment && (
+                <DeleteButton
+                  armed={confirmDelete === 'all'}
+                  disabled={busy}
+                  onClick={() => onDelete('all')}
+                  label={`Excluir as ${transaction.installment_total}`}
+                />
+              )}
+            </>
+          )
+        }
+      >
+        <Button type="button" variant="outline" onClick={onDone} className="flex-1 sm:flex-none">
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={busy || !accounts} className="flex-1 sm:flex-none">
+          {busy ? 'Salvando…' : 'Salvar'}
+        </Button>
+      </FormFooter>
     </form>
   );
 }
+
+/** Todas as parcelas da compra; a atual em destaque e as outras abrem ao clicar. */
+function InstallmentList({ transaction }: { transaction: Transaction }) {
+  const { data, isLoading } = useInstallments(transaction.installment_group);
+  const { openTransaction } = useTransactionDialog();
+  const total = data?.reduce((s, t) => s + t.amount, 0) ?? 0;
+  const paidCount = data?.filter((t) => t.paid).length ?? 0;
+  const missing = (transaction.installment_total ?? 0) - (data?.length ?? 0);
+
+  return (
+    <FormSection title="Parcelas da compra">
+      {isLoading || !data ? (
+        <p className="text-muted-foreground text-xs">Carregando parcelas…</p>
+      ) : (
+        <div className="overflow-hidden rounded-md border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-muted-foreground text-xs">
+              <tr>
+                <th className="w-16 px-3 py-1.5 text-left font-medium">Nº</th>
+                <th className="px-3 py-1.5 text-left font-medium">Fatura</th>
+                <th className="px-3 py-1.5 text-left font-medium">Data</th>
+                <th className="px-3 py-1.5 text-left font-medium">Status</th>
+                <th className="px-3 py-1.5 text-right font-medium">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((t) => {
+                const current = t.id === transaction.id;
+                return (
+                  <tr
+                    key={t.id}
+                    onClick={current ? undefined : () => openTransaction(t)}
+                    title={current ? 'Parcela aberta' : 'Abrir esta parcela'}
+                    className={cn('border-t', current ? 'bg-primary/10 font-medium' : 'hover:bg-muted/40 cursor-pointer')}
+                  >
+                    <td className="money px-3 py-1.5">
+                      {t.installment_number}/{t.installment_total}
+                    </td>
+                    <td className="px-3 py-1.5">{t.invoice_month ? formatInvoice(t.invoice_month.slice(0, 7)) : '—'}</td>
+                    <td className="money text-muted-foreground px-3 py-1.5">{formatDateBR(t.date)}</td>
+                    <td className="px-3 py-1.5">
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1.5 text-xs',
+                          t.paid ? 'text-success' : 'text-muted-foreground',
+                        )}
+                      >
+                        <span className={cn('size-1.5 rounded-full', t.paid ? 'bg-success' : 'bg-muted-foreground/50')} />
+                        {t.paid ? 'Pago' : 'Pendente'}
+                      </span>
+                    </td>
+                    <td className="money px-3 py-1.5 text-right">{formatMoney(t.amount)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot className="bg-muted/40 text-xs">
+              <tr className="border-t">
+                <td colSpan={3} className="text-muted-foreground px-3 py-1.5">
+                  {paidCount} de {data.length} pagas{missing > 0 && ` · ${missing} excluídas`}
+                </td>
+                <td className="text-muted-foreground px-3 py-1.5 text-right">Total</td>
+                <td className="money px-3 py-1.5 text-right font-semibold">{formatMoney(total)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </FormSection>
+  );
+}
+
+const formatDateBR = (iso: string) => iso.split('-').reverse().join('/');
 
 function DeleteButton(props: { armed: boolean; disabled: boolean; onClick: () => void; label: string }) {
   return (

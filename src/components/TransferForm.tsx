@@ -6,7 +6,8 @@ import { shiftMonth, todayISO } from '@/lib/dates';
 import { useDeleteTransfer, useSaveTransfer, type Transfer } from '@/lib/transfers';
 import { cn, parseMoney, toMoneyInput } from '@/lib/utils';
 import { Button } from './ui/button';
-import { Input, Label } from './ui/input';
+import { Field, FormFooter, SwitchRow } from './ui/form';
+import { Input } from './ui/input';
 import { Select } from './ui/select';
 
 export type TransferDefaults = {
@@ -84,10 +85,9 @@ export function TransferForm({ transfer, defaults, onDone }: Props) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <div className="grid items-end gap-2 sm:grid-cols-[1fr_auto_1fr]">
-        <div className="space-y-2">
-          <Label htmlFor="tr-from">De</Label>
+    <form onSubmit={onSubmit} className="space-y-5">
+      <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto_1fr]">
+        <Field label="De" htmlFor="tr-from">
           <Select id="tr-from" value={from} onChange={(e) => setFromId(e.target.value)}>
             {usable.map((a) => (
               <option key={a.id} value={a.id}>
@@ -95,10 +95,9 @@ export function TransferForm({ transfer, defaults, onDone }: Props) {
               </option>
             ))}
           </Select>
-        </div>
+        </Field>
         <ArrowRight className="text-muted-foreground mx-auto mb-2.5 hidden size-4 sm:block" />
-        <div className="space-y-2">
-          <Label htmlFor="tr-to">Para</Label>
+        <Field label="Para" htmlFor="tr-to">
           <Select
             id="tr-to"
             value={to}
@@ -113,30 +112,32 @@ export function TransferForm({ transfer, defaults, onDone }: Props) {
               </option>
             ))}
           </Select>
-        </div>
+        </Field>
       </div>
 
       <div className={cn('grid gap-4', card ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
-        <div className="space-y-2">
-          <Label htmlFor="tr-amount">Valor</Label>
-          <Input
-            id="tr-amount"
-            inputMode="decimal"
-            placeholder="0,00"
-            required
-            autoFocus
-            className="money"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="tr-date">Data</Label>
+        <Field label="Valor" htmlFor="tr-amount">
+          <div className="relative">
+            <span className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm">
+              R$
+            </span>
+            <Input
+              id="tr-amount"
+              inputMode="decimal"
+              placeholder="0,00"
+              required
+              autoFocus
+              className="money pl-10 font-semibold"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+        </Field>
+        <Field label="Data" htmlFor="tr-date">
           <Input id="tr-date" type="date" required value={date} onChange={(e) => setDate(e.target.value)} />
-        </div>
+        </Field>
         {card && (
-          <div className="space-y-2">
-            <Label htmlFor="tr-invoice">Paga a fatura</Label>
+          <Field label="Paga a fatura" htmlFor="tr-invoice">
             <Select id="tr-invoice" value={invoice || suggested} onChange={(e) => setInvoice(e.target.value)}>
               {invoiceOptions.sort().map((m) => (
                 <option key={m} value={m}>
@@ -144,14 +145,11 @@ export function TransferForm({ transfer, defaults, onDone }: Props) {
                 </option>
               ))}
             </Select>
-          </div>
+          </Field>
         )}
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="tr-desc">
-          Descrição <span className="text-muted-foreground font-normal">(opcional)</span>
-        </Label>
+      <Field label="Descrição" htmlFor="tr-desc" optional>
         <Input
           id="tr-desc"
           maxLength={200}
@@ -159,20 +157,15 @@ export function TransferForm({ transfer, defaults, onDone }: Props) {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-      </div>
+      </Field>
 
-      <label className="flex cursor-pointer items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={paid}
-          onChange={(e) => setPaid(e.target.checked)}
-          className="accent-success size-4"
-        />
-        Efetivada
-        <span className="text-muted-foreground text-xs">
-          {paid ? '(já saiu da conta)' : '(pendente / agendada)'}
-        </span>
-      </label>
+      <SwitchRow
+        checked={paid}
+        onChange={setPaid}
+        tone="success"
+        label="Efetivada"
+        description={paid ? 'Já saiu da conta.' : 'Pendente / agendada.'}
+      />
 
       <p className="text-muted-foreground text-xs">
         Transferências não contam como receita nem despesa: só movem dinheiro entre suas contas.
@@ -180,27 +173,29 @@ export function TransferForm({ transfer, defaults, onDone }: Props) {
 
       {error && <p className="text-destructive text-sm">{error}</p>}
 
-      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center">
-        {transfer && (
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={busy}
-            onClick={onDelete}
-            className={cn('text-destructive hover:text-destructive', confirmDelete && 'bg-destructive/10')}
-          >
-            {confirmDelete ? 'Confirmar exclusão' : 'Excluir'}
-          </Button>
-        )}
-        <div className="flex gap-2 sm:ml-auto">
-          <Button type="button" variant="outline" onClick={onDone} className="flex-1 sm:flex-none">
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={busy || !accounts} className="flex-1 sm:flex-none">
-            {busy ? 'Salvando…' : 'Salvar'}
-          </Button>
-        </div>
-      </div>
+      <FormFooter
+        left={
+          transfer && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={onDelete}
+              className={cn('text-destructive hover:text-destructive', confirmDelete && 'bg-destructive/10')}
+            >
+              {confirmDelete ? 'Confirmar exclusão' : 'Excluir'}
+            </Button>
+          )
+        }
+      >
+        <Button type="button" variant="outline" onClick={onDone} className="flex-1 sm:flex-none">
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={busy || !accounts} className="flex-1 sm:flex-none">
+          {busy ? 'Salvando…' : 'Salvar'}
+        </Button>
+      </FormFooter>
     </form>
   );
 }

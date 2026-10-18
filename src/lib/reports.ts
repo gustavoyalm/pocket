@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { supabase } from './supabase';
 import { currentMonth, shiftMonth } from './dates';
-import type { TransactionType } from './transactions';
+import { parseTransactions, TRANSACTION_SELECT, type Transaction, type TransactionType } from './transactions';
 
 /** Período em meses, inclusivo nas duas pontas ("YYYY-MM"). */
 export type Period = { from: string; to: string };
@@ -139,4 +139,48 @@ export const formatCompact = (v: number) => compact.format(v);
 export function change(current: number, previous: number) {
   if (!previous) return null;
   return (current - previous) / previous;
+}
+
+const DETAIL_LIMIT = 300;
+
+/**
+ * Gastos que compõem uma linha do relatório (uma ou mais subcategorias, ou uma tag), no período e
+ * com os mesmos filtros. Só busca quando `enabled` (linha aberta). Traz a transação completa
+ * (com tags) para poder abrir a edição.
+ */
+export function useReportTransactions(
+  f: ReportFilters & { type: TransactionType; categoryIds?: string[] },
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ['reports', 'detail', f],
+    enabled,
+    queryFn: async (): Promise<{ rows: Transaction[]; total: number }> => {
+      // Filtro por tag: primeiro os ids (assim a transação vem com TODAS as tags, não só a filtrada)
+      let ids: string[] | null = null;
+      if (f.tagId) {
+        const { data, error } = await supabase.from('transaction_tags').select('transaction_id').eq('tag_id', f.tagId);
+        if (error) throw error;
+        ids = data.map((r) => r.transaction_id);
+        if (!ids.length) return { rows: [], total: 0 };
+      }
+      const { p_start, p_end } = range(f.period);
+      let q = supabase
+        .from('transactions')
+        .select(TRANSACTION_SELECT, { count: 'exact' })
+        .gte('date', p_start)
+        .lt('date', p_end)
+        .eq('type', f.type);
+      if (f.categoryIds?.length) q = q.in('category_id', f.categoryIds);
+      if (f.paidOnly) q = q.eq('paid', true);
+      if (f.accountId) q = q.eq('account_id', f.accountId);
+      if (ids) q = q.in('id', ids);
+      const { data, error, count } = await q
+        .order('amount', { ascending: false })
+        .order('date', { ascending: false })
+        .limit(DETAIL_LIMIT);
+      if (error) throw error;
+      return { rows: parseTransactions(data), total: count ?? data.length };
+    },
+  });
 }

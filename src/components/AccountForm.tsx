@@ -8,9 +8,11 @@ import {
   type Account,
   type AccountType,
 } from '@/lib/accounts';
+import { currentMonth, isValidMonth } from '@/lib/dates';
 import { cn, parseMoney, toMoneyInput } from '@/lib/utils';
 import { Button } from './ui/button';
-import { Input, Label } from './ui/input';
+import { Field, FormFooter, FormSection, SwitchRow } from './ui/form';
+import { Input } from './ui/input';
 import { Select } from './ui/select';
 
 type Props = { account?: Account; onDone: () => void };
@@ -23,6 +25,9 @@ export function AccountForm({ account, onDone }: Props) {
   const [archived, setArchived] = useState(account?.archived ?? false);
   const [closingDay, setClosingDay] = useState(account?.closing_day?.toString() ?? '');
   const [dueDay, setDueDay] = useState(account?.due_day?.toString() ?? '');
+  const [finals, setFinals] = useState((account?.card_finals ?? []).join(', '));
+  // Fatura a partir da qual a importação traz transações ("YYYY-MM"); padrão: mês atual
+  const [importSince, setImportSince] = useState(account?.import_since?.slice(0, 7) ?? currentMonth());
   const [limit, setLimit] = useState(account?.credit_limit != null ? toMoneyInput(Number(account.credit_limit)) : '');
   const isCard = type === 'credit_card';
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -57,6 +62,11 @@ export function AccountForm({ account, onDone }: Props) {
         closing_day: isCard ? closing : null,
         due_day: isCard ? due : null,
         credit_limit: isCard ? credit_limit : null,
+        // "2400, 1234" → ['2400', '1234'] (só dígitos, sem repetir)
+        import_since: isCard && isValidMonth(importSince) ? `${importSince}-01` : null,
+        card_finals: isCard
+          ? [...new Set(finals.split(/[,\s]+/).map((f) => f.replace(/\D/g, '')).filter(Boolean))]
+          : [],
       });
       onDone();
     } catch (err) {
@@ -76,23 +86,20 @@ export function AccountForm({ account, onDone }: Props) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="acc-name">Nome</Label>
-        <Input
-          id="acc-name"
-          required
-          maxLength={80}
-          placeholder="Ex.: Nubank, Carteira"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          autoFocus
-        />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="acc-type">Tipo</Label>
+    <form onSubmit={onSubmit} className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-[1fr_12rem]">
+        <Field label="Nome" htmlFor="acc-name">
+          <Input
+            id="acc-name"
+            required
+            maxLength={80}
+            placeholder="Ex.: Nubank, Carteira"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
+        </Field>
+        <Field label="Tipo" htmlFor="acc-type">
           <Select id="acc-type" value={type} onChange={(e) => setType(e.target.value as AccountType)}>
             {Object.entries(accountTypes).map(([value, { label }]) => (
               <option key={value} value={value}>
@@ -100,28 +107,33 @@ export function AccountForm({ account, onDone }: Props) {
               </option>
             ))}
           </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="acc-initial">{isCard ? 'Saldo inicial (dívida)' : 'Saldo inicial'}</Label>
-          <Input
-            id="acc-initial"
-            inputMode="decimal"
-            placeholder="0,00"
-            className="money"
-            value={initial}
-            onChange={(e) => setInitial(e.target.value)}
-          />
-        </div>
+        </Field>
       </div>
+
+      <Field
+        label={isCard ? 'Saldo inicial (dívida)' : 'Saldo inicial'}
+        htmlFor="acc-initial"
+        className="sm:w-1/2"
+        hint={
+          isCard
+            ? 'Negativo para uma dívida anterior ao pocket (ex.: -350,00). O ideal é deixar 0 e lançar as compras da fatura atual.'
+            : undefined
+        }
+      >
+        <Input
+          id="acc-initial"
+          inputMode="decimal"
+          placeholder="0,00"
+          className="money"
+          value={initial}
+          onChange={(e) => setInitial(e.target.value)}
+        />
+      </Field>
+
       {isCard && (
-        <>
-          <p className="text-muted-foreground -mt-2 text-xs">
-            Use negativo para uma dívida anterior ao pocket (ex.: -350,00). O ideal é deixar 0 e lançar
-            as compras da fatura atual normalmente.
-          </p>
+        <FormSection title="Cartão de crédito">
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="acc-closing">Dia de fechamento</Label>
+            <Field label="Dia de fechamento" htmlFor="acc-closing">
               <Input
                 id="acc-closing"
                 inputMode="numeric"
@@ -131,9 +143,8 @@ export function AccountForm({ account, onDone }: Props) {
                 value={closingDay}
                 onChange={(e) => setClosingDay(e.target.value.replace(/\D/g, '').slice(0, 2))}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="acc-due">Dia de vencimento</Label>
+            </Field>
+            <Field label="Dia de vencimento" htmlFor="acc-due">
               <Input
                 id="acc-due"
                 inputMode="numeric"
@@ -143,11 +154,8 @@ export function AccountForm({ account, onDone }: Props) {
                 value={dueDay}
                 onChange={(e) => setDueDay(e.target.value.replace(/\D/g, '').slice(0, 2))}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="acc-limit">
-                Limite <span className="text-muted-foreground font-normal">(opcional)</span>
-              </Label>
+            </Field>
+            <Field label="Limite" htmlFor="acc-limit" optional>
               <Input
                 id="acc-limit"
                 inputMode="decimal"
@@ -156,16 +164,48 @@ export function AccountForm({ account, onDone }: Props) {
                 value={limit}
                 onChange={(e) => setLimit(e.target.value)}
               />
-            </div>
+            </Field>
           </div>
-          <p className="text-muted-foreground -mt-2 text-xs">
+          <p className="text-muted-foreground -mt-1 text-xs">
             Compras feitas a partir do dia de fechamento entram na fatura seguinte.
           </p>
-        </>
+        </FormSection>
       )}
 
-      <div className="space-y-2">
-        <Label>Cor</Label>
+      {isCard && (
+        <FormSection title="Importação">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Finais do cartão"
+              htmlFor="acc-finals"
+              optional
+              hint="Inclua os finais de cartões virtuais e adicionais desta mesma fatura."
+            >
+              <Input
+                id="acc-finals"
+                className="money"
+                placeholder="Ex.: 2400, 1234"
+                value={finals}
+                onChange={(e) => setFinals(e.target.value)}
+              />
+            </Field>
+            <Field
+              label="Importar a partir da fatura"
+              htmlFor="acc-import-since"
+              hint="Faturas anteriores são ignoradas; parcelas futuras de compras antigas continuam entrando."
+            >
+              <Input
+                id="acc-import-since"
+                type="month"
+                value={importSince}
+                onChange={(e) => setImportSince(e.target.value)}
+              />
+            </Field>
+          </div>
+        </FormSection>
+      )}
+
+      <Field label="Cor">
         <div className="flex flex-wrap gap-2">
           {accountColors.map((c) => (
             <button
@@ -181,49 +221,47 @@ export function AccountForm({ account, onDone }: Props) {
             </button>
           ))}
         </div>
-      </div>
+      </Field>
 
       {account && (
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={archived}
-            onChange={(e) => setArchived(e.target.checked)}
-            className="accent-primary size-4"
-          />
-          Arquivar conta
-          <span className="text-muted-foreground">(some da lista e do saldo total)</span>
-        </label>
+        <SwitchRow
+          checked={archived}
+          onChange={setArchived}
+          label="Arquivar conta"
+          description="Some da lista e do saldo total."
+        />
       )}
 
       {error && <p className="text-destructive text-sm">{error}</p>}
-
-      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center">
-        {account && (
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={busy}
-            onClick={onDelete}
-            className={cn('text-destructive hover:text-destructive', confirmDelete && 'bg-destructive/10')}
-          >
-            {confirmDelete ? 'Confirmar exclusão' : 'Excluir'}
-          </Button>
-        )}
-        <div className="flex gap-2 sm:ml-auto">
-          <Button type="button" variant="outline" onClick={onDone} className="flex-1 sm:flex-none">
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={busy} className="flex-1 sm:flex-none">
-            {save.isPending ? 'Salvando…' : 'Salvar'}
-          </Button>
-        </div>
-      </div>
       {confirmDelete && (
         <p className="text-muted-foreground text-xs">
           Excluir apaga também todas as transações desta conta. Se quiser só escondê-la, arquive.
         </p>
       )}
+
+      <FormFooter
+        left={
+          account && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={onDelete}
+              className={cn('text-destructive hover:text-destructive', confirmDelete && 'bg-destructive/10')}
+            >
+              {confirmDelete ? 'Confirmar exclusão' : 'Excluir'}
+            </Button>
+          )
+        }
+      >
+        <Button type="button" variant="outline" onClick={onDone} className="flex-1 sm:flex-none">
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={busy} className="flex-1 sm:flex-none">
+          {save.isPending ? 'Salvando…' : 'Salvar'}
+        </Button>
+      </FormFooter>
     </form>
   );
 }

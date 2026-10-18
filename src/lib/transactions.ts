@@ -8,10 +8,11 @@ export type TransactionType = Enums<'transaction_type'>;
 export type Transaction = Tables<'transactions'> & { tagIds: string[] };
 
 // Traz as tags junto, pela tabela de ligação
-const SELECT = '*, transaction_tags(tag_id)';
+export const TRANSACTION_SELECT = '*, transaction_tags(tag_id)';
+const SELECT = TRANSACTION_SELECT;
 
 type Row = Tables<'transactions'> & { transaction_tags: { tag_id: string }[] };
-const parse = (rows: Row[]): Transaction[] =>
+export const parseTransactions = (rows: Row[]): Transaction[] =>
   rows.map(({ transaction_tags, ...t }) => ({
     ...t,
     amount: Number(t.amount),
@@ -32,7 +33,7 @@ export function useTransactions(month: string) {
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return parse(data);
+      return parseTransactions(data);
     },
   });
 }
@@ -51,7 +52,24 @@ export function useInvoiceTransactions(accountId: string | undefined, invoice: s
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return parse(data);
+      return parseTransactions(data);
+    },
+  });
+}
+
+/** Todas as parcelas de uma compra parcelada, em ordem. */
+export function useInstallments(group: string | null | undefined) {
+  return useQuery({
+    queryKey: ['transactions', 'installments', group],
+    enabled: !!group,
+    queryFn: async (): Promise<Transaction[]> => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select(SELECT)
+        .eq('installment_group', group!)
+        .order('installment_number', { ascending: true });
+      if (error) throw error;
+      return parseTransactions(data);
     },
   });
 }

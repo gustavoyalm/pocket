@@ -1,8 +1,9 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeftRight, ChartColumn, CreditCard, LayoutDashboard, LogOut, Tag, Tags, Wallet } from 'lucide-react';
+import { ArrowLeftRight, ChartColumn, CreditCard, Inbox, LayoutDashboard, LogOut, Tag, Tags, Wallet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth/AuthProvider';
+import { usePendingImportCount } from '@/lib/imports';
 import { cn } from '@/lib/utils';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
@@ -13,6 +14,7 @@ const nav = [
   { to: '/', label: 'Visão geral', icon: LayoutDashboard, ready: true },
   { to: '/transacoes', label: 'Transações', icon: ArrowLeftRight, ready: true },
   { to: '/faturas', label: 'Faturas', icon: CreditCard, ready: true },
+  { to: '/importacoes', label: 'Importações', icon: Inbox, ready: true },
   { to: '/relatorios', label: 'Relatórios', icon: ChartColumn, ready: true },
   { to: '/contas', label: 'Contas', icon: Wallet, ready: true },
   { to: '/categorias', label: 'Categorias', icon: Tags, ready: true },
@@ -25,6 +27,7 @@ const itemClass =
 export function AppLayout() {
   const { session } = useAuth();
   const queryClient = useQueryClient();
+  const { data: pendingImports = 0 } = usePendingImportCount();
   const signOut = async () => {
     await supabase.auth.signOut();
     queryClient.clear(); // não deixa dados em cache para o próximo usuário
@@ -54,13 +57,21 @@ export function AppLayout() {
                     cn(
                       itemClass,
                       isActive
-                        ? 'bg-sidebar-accent font-medium'
+                        ? 'bg-primary/10 text-primary font-medium'
                         : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
                     )
                   }
                 >
                   <Icon />
                   {label}
+                  {to === '/importacoes' && pendingImports > 0 && (
+                    <span
+                      className="bg-primary text-primary-foreground ml-auto rounded-full px-1.5 text-[10px] font-medium"
+                      title={`${pendingImports} para revisar`}
+                    >
+                      {pendingImports}
+                    </span>
+                  )}
                 </NavLink>
               ) : (
                 <span key={to} className={cn(itemClass, 'text-muted-foreground/50 cursor-default')} title="Em breve">

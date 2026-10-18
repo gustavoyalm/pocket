@@ -75,8 +75,15 @@ export function TransactionDialogProvider({ children }: { children: ReactNode })
   return (
     <TransactionDialogContext.Provider value={{ openTransaction, openTransfer, setNewTransactionHandler }}>
       {children}
-      <Dialog open={editing !== null} onClose={close} title={title}>
-        {editing?.kind === 'transaction' && <TransactionForm transaction={editing.transaction} onDone={close} />}
+      <Dialog
+        open={editing !== null}
+        onClose={close}
+        title={title}
+        className={editing?.kind === 'transaction' ? 'max-w-2xl' : undefined}
+      >
+        {editing?.kind === 'transaction' && (
+          <TransactionForm key={editing.transaction?.id ?? 'new'} transaction={editing.transaction} onDone={close} />
+        )}
         {editing?.kind === 'transfer' && (
           <TransferForm transfer={editing.transfer} defaults={editing.defaults} onDone={close} />
         )}

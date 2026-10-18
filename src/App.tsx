@@ -7,6 +7,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { Accounts } from '@/pages/Accounts';
 import { Categories } from '@/pages/Categories';
 import { Dashboard } from '@/pages/Dashboard';
+import { Imports } from '@/pages/Imports';
 import { Invoices } from '@/pages/Invoices';
 import { Login } from '@/pages/Login';
 import { NotConfigured } from '@/pages/NotConfigured';
@@ -40,6 +41,7 @@ export default function App() {
               <Route index element={<Dashboard />} />
               <Route path="transacoes" element={<Transactions />} />
               <Route path="faturas" element={<Invoices />} />
+              <Route path="importacoes" element={<Imports />} />
               <Route path="contas" element={<Accounts />} />
               <Route path="categorias" element={<Categories />} />
               <Route path="tags" element={<Tags />} />

@@ -1,6 +1,7 @@
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { groupCategories, useCategories, type Category } from '@/lib/categories';
+import type { TransactionType } from '@/lib/transactions';
 import { cn } from '@/lib/utils';
 
 type Option = { sub: Category; parent: Category; label: string; search: string };
@@ -10,6 +11,9 @@ type Props = {
   onChange: (categoryId: string) => void;
   className?: string;
   'aria-invalid'?: boolean;
+  /** Só oferece subcategorias desse tipo (sem isso: despesas e receitas) */
+  type?: TransactionType;
+  placeholder?: string;
 };
 
 export type CategoryComboboxHandle = { focus: () => void };
@@ -20,7 +24,7 @@ const fold = (s: string) =>
 
 /** Busca de subcategoria por texto ("merc" → Mercado › Supermercado), de despesa e de receita. */
 export const CategoryCombobox = forwardRef<CategoryComboboxHandle, Props>(function CategoryCombobox(
-  { value, onChange, className, ...aria },
+  { value, onChange, className, type, placeholder = 'Categoria', ...aria },
   ref,
 ) {
   const { data: categories } = useCategories();
@@ -33,8 +37,8 @@ export const CategoryCombobox = forwardRef<CategoryComboboxHandle, Props>(functi
 
   const options = useMemo<Option[]>(
     () =>
-      (['expense', 'income'] as const).flatMap((type) =>
-        groupCategories(categories, type)
+      (type ? [type] : (['expense', 'income'] as const)).flatMap((t) =>
+        groupCategories(categories, t)
           .filter((p) => !p.archived)
           .flatMap((parent) =>
             parent.children
@@ -47,7 +51,7 @@ export const CategoryCombobox = forwardRef<CategoryComboboxHandle, Props>(functi
               })),
           ),
       ),
-    [categories],
+    [categories, type],
   );
 
   const selected = options.find((o) => o.sub.id === value);
@@ -87,7 +91,7 @@ export const CategoryCombobox = forwardRef<CategoryComboboxHandle, Props>(functi
         aria-expanded={open}
         aria-autocomplete="list"
         autoComplete="off"
-        placeholder="Categoria"
+        placeholder={placeholder}
         value={query ?? selected?.label ?? ''}
         onChange={(e) => {
           setQuery(e.target.value);

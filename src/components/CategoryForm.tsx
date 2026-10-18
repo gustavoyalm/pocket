@@ -12,7 +12,8 @@ import {
 import type { TransactionType } from '@/lib/transactions';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
-import { Input, Label } from './ui/input';
+import { Field, FormFooter, SwitchRow } from './ui/form';
+import { Input } from './ui/input';
 import { Select } from './ui/select';
 
 export type CategoryFormTarget =
@@ -82,9 +83,8 @@ export function CategoryForm({ target, onDone }: Props) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="cat-name">Nome</Label>
+    <form onSubmit={onSubmit} className="space-y-5">
+      <Field label="Nome" htmlFor="cat-name">
         <Input
           id="cat-name"
           required
@@ -94,11 +94,10 @@ export function CategoryForm({ target, onDone }: Props) {
           onChange={(e) => setName(e.target.value)}
           placeholder={isSub ? 'Ex.: Supermercado' : 'Ex.: Mercado'}
         />
-      </div>
+      </Field>
 
       {isSub ? (
-        <div className="space-y-2">
-          <Label htmlFor="cat-parent">Categoria</Label>
+        <Field label="Categoria" htmlFor="cat-parent">
           <Select id="cat-parent" value={parentId} onChange={(e) => setParentId(e.target.value)}>
             {parents.map((p) => (
               <option key={p.id} value={p.id}>
@@ -106,10 +105,9 @@ export function CategoryForm({ target, onDone }: Props) {
               </option>
             ))}
           </Select>
-        </div>
+        </Field>
       ) : (
-        <div className="space-y-2">
-          <Label>Cor</Label>
+        <Field label="Cor">
           <div className="flex flex-wrap gap-2">
             {categoryColors.map((c) => (
               <button
@@ -118,65 +116,60 @@ export function CategoryForm({ target, onDone }: Props) {
                 aria-label={`Cor ${c}`}
                 aria-pressed={color === c}
                 onClick={() => setColor(c)}
-                className="ring-offset-card flex size-6 items-center justify-center rounded-full transition-shadow aria-pressed:ring-2 aria-pressed:ring-current aria-pressed:ring-offset-2"
+                className="ring-offset-card flex size-7 items-center justify-center rounded-full transition-shadow aria-pressed:ring-2 aria-pressed:ring-current aria-pressed:ring-offset-2"
                 style={{ backgroundColor: c, color: c }}
               >
-                {color === c && <Check className="size-3 text-white" />}
+                {color === c && <Check className="size-3.5 text-white" />}
               </button>
             ))}
           </div>
-        </div>
+        </Field>
       )}
 
       {editing && (
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={archived}
-            onChange={(e) => setArchived(e.target.checked)}
-            className="accent-primary size-4"
-          />
-          Arquivar
-          <span className="text-muted-foreground">(não aparece mais ao lançar transações)</span>
-        </label>
+        <SwitchRow
+          checked={archived}
+          onChange={setArchived}
+          label="Arquivar"
+          description="Não aparece mais ao lançar transações."
+        />
       )}
 
       {error && <p className="text-destructive text-sm">{error}</p>}
-
-      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center">
-        {editing && (
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={busy || inUse > 0}
-            title={inUse > 0 ? 'Em uso por transações — arquive em vez de excluir' : undefined}
-            onClick={onDelete}
-            className={cn('text-destructive hover:text-destructive', confirmDelete && 'bg-destructive/10')}
-          >
-            {confirmDelete ? 'Confirmar exclusão' : 'Excluir'}
-          </Button>
-        )}
-        <div className="flex gap-2 sm:ml-auto">
-          <Button type="button" variant="outline" onClick={onDone} className="flex-1 sm:flex-none">
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={busy} className="flex-1 sm:flex-none">
-            {save.isPending ? 'Salvando…' : 'Salvar'}
-          </Button>
-        </div>
-      </div>
-
       {editing && inUse > 0 && (
         <p className="text-muted-foreground text-xs">
-          {inUse} {inUse === 1 ? 'transação usa' : 'transações usam'} esta categoria, por isso ela não pode
-          ser excluída. Arquive para escondê-la.
+          {inUse} {inUse === 1 ? 'transação usa' : 'transações usam'} esta categoria, por isso ela não pode ser
+          excluída. Arquive para escondê-la.
         </p>
       )}
       {confirmDelete && childCount > 0 && (
-        <p className="text-muted-foreground text-xs">
-          As {childCount} subcategorias também serão excluídas.
-        </p>
+        <p className="text-muted-foreground text-xs">As {childCount} subcategorias também serão excluídas.</p>
       )}
+
+      <FormFooter
+        left={
+          editing && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={busy || inUse > 0}
+              title={inUse > 0 ? 'Em uso por transações — arquive em vez de excluir' : undefined}
+              onClick={onDelete}
+              className={cn('text-destructive hover:text-destructive', confirmDelete && 'bg-destructive/10')}
+            >
+              {confirmDelete ? 'Confirmar exclusão' : 'Excluir'}
+            </Button>
+          )
+        }
+      >
+        <Button type="button" variant="outline" onClick={onDone} className="flex-1 sm:flex-none">
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={busy} className="flex-1 sm:flex-none">
+          {save.isPending ? 'Salvando…' : 'Salvar'}
+        </Button>
+      </FormFooter>
     </form>
   );
 }

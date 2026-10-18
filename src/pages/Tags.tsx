@@ -5,7 +5,8 @@ import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
-import { Input, Label } from '@/components/ui/input';
+import { Field, FormFooter } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import { Table, Td, Th, THead, Tr } from '@/components/ui/table';
 
 type Editing = { tag?: Tag } | null;
@@ -120,9 +121,8 @@ function TagForm({ tag, onDone }: { tag?: Tag; onDone: () => void }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="tag-name">Nome</Label>
+    <form onSubmit={onSubmit} className="space-y-5">
+      <Field label="Nome" htmlFor="tag-name">
         <Input
           id="tag-name"
           required
@@ -132,10 +132,9 @@ function TagForm({ tag, onDone }: { tag?: Tag; onDone: () => void }) {
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-      </div>
+      </Field>
 
-      <div className="space-y-2">
-        <Label>Cor</Label>
+      <Field label="Cor">
         <div className="flex flex-wrap gap-2">
           {tagColors.map((c) => (
             <button
@@ -144,49 +143,52 @@ function TagForm({ tag, onDone }: { tag?: Tag; onDone: () => void }) {
               aria-label={`Cor ${c}`}
               aria-pressed={color === c}
               onClick={() => setColor(c)}
-              className="ring-offset-card flex size-6 items-center justify-center rounded-full transition-shadow aria-pressed:ring-2 aria-pressed:ring-current aria-pressed:ring-offset-2"
+              className="ring-offset-card flex size-7 items-center justify-center rounded-full transition-shadow aria-pressed:ring-2 aria-pressed:ring-current aria-pressed:ring-offset-2"
               style={{ backgroundColor: c, color: c }}
             >
-              {color === c && <Check className="size-3 text-white" />}
+              {color === c && <Check className="size-3.5 text-white" />}
             </button>
           ))}
         </div>
-      </div>
+      </Field>
 
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground">Prévia:</span>
-        <TagChip tag={{ name: name.trim(), color }} />
-      </div>
+      <Field label="Prévia">
+        <div>
+          <TagChip tag={{ name: name.trim(), color }} />
+        </div>
+      </Field>
 
       {error && <p className="text-destructive text-sm">{error}</p>}
-
-      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center">
-        {tag && (
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={busy}
-            onClick={onDelete}
-            className={cn('text-destructive hover:text-destructive', confirmDelete && 'bg-destructive/10')}
-          >
-            {confirmDelete ? 'Confirmar exclusão' : 'Excluir'}
-          </Button>
-        )}
-        <div className="flex gap-2 sm:ml-auto">
-          <Button type="button" variant="outline" onClick={onDone} className="flex-1 sm:flex-none">
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={busy} className="flex-1 sm:flex-none">
-            {save.isPending ? 'Salvando…' : 'Salvar'}
-          </Button>
-        </div>
-      </div>
       {confirmDelete && tag && tag.uses > 0 && (
         <p className="text-muted-foreground text-xs">
-          A tag será removida de {tag.uses} {tag.uses === 1 ? 'transação' : 'transações'} (as transações
-          continuam existindo).
+          A tag será removida de {tag.uses} {tag.uses === 1 ? 'transação' : 'transações'} (as transações continuam
+          existindo).
         </p>
       )}
+
+      <FormFooter
+        left={
+          tag && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={onDelete}
+              className={cn('text-destructive hover:text-destructive', confirmDelete && 'bg-destructive/10')}
+            >
+              {confirmDelete ? 'Confirmar exclusão' : 'Excluir'}
+            </Button>
+          )
+        }
+      >
+        <Button type="button" variant="outline" onClick={onDone} className="flex-1 sm:flex-none">
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={busy} className="flex-1 sm:flex-none">
+          {save.isPending ? 'Salvando…' : 'Salvar'}
+        </Button>
+      </FormFooter>
     </form>
   );
 }
